@@ -21,6 +21,7 @@ using namespace PsqlChunks;
 #define ANSI_BLUE   "\e[34m"
 #define ANSI_BOLD   "\e[1m"
 #define ANSI_RESET  "\e[m"
+#define ANSI_NONE   ""
 
 
 // Return/exit codes
@@ -72,12 +73,13 @@ static Settings settings = {
 };
 
 
-void inline
-set_ansi(const char * color)
+const char *
+ansi_code(const char * color)
 {
     if (settings.colored) {
-        printf("%s", color);
+        return color;
     }
+    return ANSI_NONE;
 }
 
 
@@ -170,24 +172,21 @@ run_sql(chunkvector_t & chunks)
 
             bool run_ok = database.runChunk(chunk);
             if (run_ok) {
-                set_ansi(ANSI_GREEN);
-                printf("OK  ");
-                set_ansi(ANSI_RESET);
+                printf("%sOK%s  ", ansi_code(ANSI_GREEN), ansi_code(ANSI_RESET));
             }
             else {
-                set_ansi(ANSI_RED);
-                printf("FAIL");
-                set_ansi(ANSI_RESET);
+                printf("%sFAIL%s", ansi_code(ANSI_RED), ansi_code(ANSI_RESET));
             }
 
             printf("  [%d-%d] %s\n", chunk->start_line, chunk->end_line, chunk->getDescription().c_str());
 
             if (!run_ok && chunk->hasDiagnostics()) {
-                printf( "%s\n", s_fail_sep);
-                set_ansi(ANSI_BOLD);
-                printf( "> description : %s\n"
+                printf( "%s\n"
+                        "%s> description : %s\n"
                         "> line        : %d\n"
                         "> sql state   : %s\n",
+                        s_fail_sep,
+                        ansi_code(ANSI_BOLD),
                         chunk->diagnostics->msg_primary.c_str(), chunk->diagnostics->error_line,
                         chunk->diagnostics->sqlstate.c_str()
                 );
@@ -200,8 +199,7 @@ run_sql(chunkvector_t & chunks)
                     printf("> hint        : %s\n", chunk->diagnostics->msg_hint.c_str());
                 }
 
-                printf("> SQL         :\n\n");
-                set_ansi(ANSI_RESET);
+                printf("> SQL         :%s\n\n", ansi_code(ANSI_RESET));
 
                 // sql
                 size_t out_start = chunk->diagnostics->error_line - ERROR_CONTEXT;
@@ -212,11 +210,11 @@ run_sql(chunkvector_t & chunks)
                         ((*lit)->number <= out_end)) {
 
                         if ((*lit)->number == chunk->diagnostics->error_line) {
-                            set_ansi(ANSI_RED);
+                            printf("%s", ansi_code(ANSI_RED));
                         }
                         printf("%s\n", (*lit)->contents.c_str());
                         if ((*lit)->number == chunk->diagnostics->error_line) {
-                            set_ansi(ANSI_RESET);
+                            printf("%s", ansi_code(ANSI_RESET));
                         }
                     }
 
@@ -236,20 +234,14 @@ run_sql(chunkvector_t & chunks)
         if (database.getFailedCount() == 0) {
             printf("\nAll chunks passed.\n");
             if (settings.commit_sql) {
-                set_ansi(ANSI_YELLOW);
-                printf("Commit.");
-                set_ansi(ANSI_RESET);
-                printf("\n");
+                printf("%sCommit%s\n", ansi_code(ANSI_YELLOW), ansi_code(ANSI_RESET));
             }
         }
         else {
             printf("\n%d chunks failed.\n", database.getFailedCount());
             rc = RC_E_SQL;
             if (settings.commit_sql) {
-                set_ansi(ANSI_YELLOW);
-                printf("Rollback.");
-                set_ansi(ANSI_RESET);
-                printf("\n");
+                printf("%sRollback%s\n", ansi_code(ANSI_YELLOW), ansi_code(ANSI_RESET));
             }
         }
     }
@@ -294,9 +286,9 @@ handle_files(char * files[], int nufiles)
             break;
 
         case LIST:
-            set_ansi(ANSI_BOLD);
-            printf(" start  |  end   | contents\n");
-            set_ansi(ANSI_RESET);
+            printf("%s start  |  end   | contents%s\n", 
+                    ansi_code(ANSI_BOLD),
+                    ansi_code(ANSI_RESET));
             for (chunkvector_t::iterator chit = chunkscanner.chunks.begin(); chit != chunkscanner.chunks.end(); ++chit) {
                 Chunk * chunk = *chit;
                 printf("%8d-%8d: %s\n", chunk->start_line, chunk->end_line, chunk->getDescription().c_str());
