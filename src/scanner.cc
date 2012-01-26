@@ -97,7 +97,7 @@ ChunkScanner::clear()
 ChunkScanner::Content
 ChunkScanner::classifyLine( std::string & line, size_t & content_pos)
 {
-    Content classification = EMPTY;
+    Content cls = EMPTY;
     int dash_counter = 0;
     content_pos=0;
 
@@ -108,44 +108,43 @@ ChunkScanner::classifyLine( std::string & line, size_t & content_pos)
         }
         else {
             if (dash_counter == 2) {
-                classification = COMMENT;
+                cls = COMMENT;
             }
             else if (!is_inline_whitespace(line[c])) {
-                classification = OTHER;
+                cls = OTHER;
                 content_pos = c;
                 break;
             }
 
-            if (classification != COMMENT) {
+            if (cls != COMMENT) {
                 dash_counter=0;
             }
             else {
                 if (!is_inline_whitespace(line[c])) {
                     content_pos = c;
                     if (has_marker(line, "start", c, content_pos)) {
-                        classification = COMMENT_START;
+                        cls = COMMENT_START;
                     }
                     if (has_marker(line, "end", c, content_pos)) {
-                        classification = COMMENT_END;
+                        cls = COMMENT_END;
                     }
                     break;
                 }
             }
         }
 
-        if (dash_counter == 3) {
-            classification = SEP;
-            break;
+        if (dash_counter >= 3) {
+            cls = SEP;
         }
     }
-    return classification;
+    return cls;
 }
 
 
 void
 ChunkScanner::scan( std::istream &is )
 {
-    Content last_class = EMPTY;
+    Content last_cls = EMPTY;
     State state = CAPTURE_SQL;
     linenumber_t last_nonempty_line = line_number;
     Chunk * chunk_ptr = new Chunk(); // TODO: handle bad_alloc
@@ -155,8 +154,8 @@ ChunkScanner::scan( std::istream &is )
         getline(is, line);
 
         size_t content_pos;
-        Content classification = classifyLine(line, content_pos);
-        switch (classification) {
+        Content cls = classifyLine(line, content_pos);
+        switch (cls) {
             case OTHER:
                 state = CAPTURE_SQL;
                 break;
@@ -172,10 +171,10 @@ ChunkScanner::scan( std::istream &is )
                 }
                 break;
             case COMMENT_START:
-                if (last_class == SEP) {
+                if (last_cls == SEP) {
                     state = NEW_CHUNK;
                 }
-                else if (last_class == COMMENT_START) {
+                else if (last_cls == COMMENT_START) {
                     state = CAPTURE_START_COMMENT;
                 }
                 else {
@@ -183,7 +182,7 @@ ChunkScanner::scan( std::istream &is )
                 }
                 break;
             case COMMENT_END:
-                if (last_class == SEP) {
+                if (last_cls == SEP) {
                     state = CAPTURE_END_COMMENT;
                 }
                 else {
@@ -191,15 +190,19 @@ ChunkScanner::scan( std::istream &is )
                 }
                 break;
             case EMPTY:
+                // remove leading empty lines
                 state = IGNORE;
                 break;
         }
 
         switch (state) {
             case CAPTURE_SQL:
-                // re-add empty lines in case we skipped some
-                for (unsigned int i = 0; i < (line_number - 1 - last_nonempty_line); i++) {
-                    chunk_ptr->appendSqlLine("", i+last_nonempty_line);
+                // re-add empty lines in case we skipped some inbetween the
+                // sql lines
+                if (chunk_ptr->hasSql()) {
+                    for (unsigned int i = 0; i < (line_number - 1 - last_nonempty_line); i++) {
+                        chunk_ptr->appendSqlLine("", i+last_nonempty_line);
+                    }
                 }
                 // append the sql and set the min max line numbers
                 chunk_ptr->appendSqlLine(line, line_number);
@@ -222,12 +225,12 @@ ChunkScanner::scan( std::istream &is )
                 break;
         }
 
-        if (classification != EMPTY) {
+        if (state != IGNORE) {
             last_nonempty_line = line_number;
         }
 
+        last_cls = cls;
         line_number++;
-        last_class = classification;
     }
 
     if (chunk_ptr->hasSql()) {
