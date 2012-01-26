@@ -16,7 +16,10 @@ PQ_INCLUDES=-I $(shell $(PG_CONFIG) --includedir)
 CFLAGS=-Wall -Wextra -D_XOPEN_SOURCE=600 $(DEBUG)
 ifeq ($(strip $(DEBUG)), )
 	# production build
-	CFLAGS+=-O2 -s
+	CFLAGS+=-O2
+   ifeq ($(CXX), g++)
+      CFLAGS+=-s
+   endif
 else
 	# debug build - add debug info to the binaries
 	CFLAGS+=-g -O0
