@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <unistd.h>
 #include <cstdlib>
@@ -33,7 +34,12 @@ using namespace PsqlChunks;
 
 // number of lines before and after the failing line
 // to print when outputing sql after an error
-#define ERROR_CONTEXT 2
+#define DEFAULT_CONTEXT_LINES 2
+
+// these two macros convert macro values to strings
+#define STRINGIFY2(x)   #x
+#define STRINGIFY(x)    STRINGIFY2(x)
+
 
 static const char * s_fail_sep = "-------------------------------------------------------";
 
@@ -41,6 +47,10 @@ static const char * s_fail_sep = "----------------------------------------------
 /* prototypes */
 void quit(const char * message);
 void print_help();
+const char * ansi_code(const char * color);
+std::string read_password();
+int run_sql(chunkvector_t & chunks);
+int handle_files(char * files[], int nufiles);
 
 
 enum Command {
@@ -59,17 +69,19 @@ struct Settings {
     bool abort_after_failed;
     Command command;
     bool colored;
+    unsigned int context_lines;
 };
 static Settings settings = {
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    false,
-    false,
-    false,
-    LIST,
-    false
+    NULL,       /* db_port */
+    NULL,       /* db_user */
+    NULL,       /* db_name */
+    NULL,       /* db_host */
+    false,      /* ask_pass */
+    false,      /* commit_sql */
+    false,      /* abort_after_failed */
+    LIST,       /* command */
+    false,      /* colored */
+    DEFAULT_CONTEXT_LINES   /* context_lines */
 };
 
 
@@ -108,17 +120,23 @@ print_help()
         "SQL Handling:\n"
         "  -c    commit SQL to the database. Default is performing a rollback\n"
         "        after the SQL has been executed. A commit will only be executed\n"
-        "        if no errors occured.\n"
-        "  -a    abort execution after first failed chunk.\n"
+        "        if no errors occured. (default: rollback)\n"
+        "  -a    abort execution after first failed chunk. (default: false)\n"
+        "  -l    number of lines to output before and after failing lines of SQL.\n"
+        "        (default: " STRINGIFY(DEFAULT_CONTEXT_LINES) ")\n"
         "\n"
         "Connection parameters:\n"
         "  -d [database name]\n"
         "  -U [user]\n"
-        "  -W       ask for password\n"
+        "  -W       ask for password (default: don't ask)\n"
         "  -h [host/socket name]\n"
         "\n"
         "Return codes:\n"
-        "  0     no errors\n"
+        "  " STRINGIFY(RC_OK)       "     no errors\n"
+        "  " STRINGIFY(RC_E_USAGE)  "     invalid usage of this program\n"
+        "  " STRINGIFY(RC_E_SQL)    "     the SQL contains errors\n"
+        "  " STRINGIFY(RC_E_DB)     "     (internal) database error\n"
+        "\n"
     );
 }
 
@@ -202,8 +220,8 @@ run_sql(chunkvector_t & chunks)
                 printf("> SQL         :%s\n\n", ansi_code(ANSI_RESET));
 
                 // sql
-                size_t out_start = chunk->diagnostics->error_line - ERROR_CONTEXT;
-                size_t out_end = chunk->diagnostics->error_line + ERROR_CONTEXT;
+                size_t out_start = chunk->diagnostics->error_line - settings.context_lines;
+                size_t out_end = chunk->diagnostics->error_line + settings.context_lines;
                 linevector_t sql_lines = chunk->getSqlLines();
                 for (linevector_t::iterator lit = sql_lines.begin(); lit != sql_lines.end(); ++lit) {
                     if (((*lit)->number >= out_start) &&
@@ -317,7 +335,7 @@ main(int argc, char * argv[] )
     };
 
     // read options
-    while ( (opt = getopt(argc, argv, "p:U:d:h:Wca")) != -1) {
+    while ( (opt = getopt(argc, argv, "l:p:U:d:h:Wca")) != -1) {
         switch (opt) {
             case 'p': /* port */
                 settings.db_port = optarg;
@@ -327,6 +345,23 @@ main(int argc, char * argv[] )
                 break;
             case 'd':
                 settings.db_name = optarg;
+                break;
+            case 'l':
+                {
+                    std::stringstream context_lines_ss;
+                    context_lines_ss << optarg;
+
+                    int context_lines_i;
+                    context_lines_ss >> context_lines_i;
+                    if (context_lines_ss.fail()) {
+                        quit("Illegal value for context lines");
+                    }
+                    if (context_lines_i < 0) {
+                        quit("Illegal value for context lines. Context lines must be positive.");
+                    }
+                    settings.context_lines = static_cast<unsigned int>(context_lines_i);
+                    log_debug("context_lines: %ud", settings.context_lines);
+                }
                 break;
             case 'h':
                 settings.db_host = optarg;
