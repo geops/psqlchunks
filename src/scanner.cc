@@ -147,6 +147,7 @@ ChunkScanner::scan( std::istream &is )
 {
     Content last_class = EMPTY;
     State state = CAPTURE_SQL;
+    linenumber_t last_nonempty_line = line_number;
     Chunk * chunk_ptr = new Chunk(); // TODO: handle bad_alloc
 
     while (is.good()) {
@@ -190,12 +191,16 @@ ChunkScanner::scan( std::istream &is )
                 }
                 break;
             case EMPTY:
+                state = IGNORE;
                 break;
         }
 
-
         switch (state) {
             case CAPTURE_SQL:
+                // re-add empty lines in case we skipped some
+                for (int i = 0; i < (line_number - 1 - last_nonempty_line); i++) {
+                    chunk_ptr->appendSqlLine("", i+last_nonempty_line);
+                }
                 // append the sql and set the min max line numbers
                 chunk_ptr->appendSqlLine(line, line_number);
                 break;
@@ -215,6 +220,10 @@ ChunkScanner::scan( std::istream &is )
                 break;
             case IGNORE:
                 break;
+        }
+
+        if (classification != EMPTY) {
+            last_nonempty_line = line_number;
         }
 
         line_number++;
