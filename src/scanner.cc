@@ -198,7 +198,7 @@ ChunkScanner::scan( std::istream &is )
         switch (state) {
             case CAPTURE_SQL:
                 // re-add empty lines in case we skipped some
-                for (int i = 0; i < (line_number - 1 - last_nonempty_line); i++) {
+                for (unsigned int i = 0; i < (line_number - 1 - last_nonempty_line); i++) {
                     chunk_ptr->appendSqlLine("", i+last_nonempty_line);
                 }
                 // append the sql and set the min max line numbers
