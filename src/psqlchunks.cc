@@ -68,7 +68,7 @@ struct Settings {
     bool commit_sql;
     bool abort_after_failed;
     Command command;
-    bool colored;
+    bool is_terminal;
     unsigned int context_lines;
 };
 static Settings settings = {
@@ -88,7 +88,7 @@ static Settings settings = {
 const char *
 ansi_code(const char * color)
 {
-    if (settings.colored) {
+    if (settings.is_terminal) {
         return color;
     }
     return ANSI_NONE;
@@ -188,7 +188,15 @@ run_sql(chunkvector_t & chunks)
         for (chunkvector_t::iterator chit = chunks.begin(); chit != chunks.end(); ++chit) {
             Chunk * chunk = *chit;
 
+            if (settings.is_terminal) {
+                printf("RUN   [%d-%d] %s", chunk->start_line, chunk->end_line, chunk->getDescription().c_str());
+            }
+
             bool run_ok = database.runChunk(chunk);
+            if (settings.is_terminal) {
+                printf("\r");
+            }
+
             if (run_ok) {
                 printf("%sOK%s  ", ansi_code(ANSI_GREEN), ansi_code(ANSI_RESET));
             }
@@ -329,9 +337,11 @@ main(int argc, char * argv[] )
 {
     char opt;
 
-    // use colored output if run in a shell
+    // use is_terminal output if run in a shell
     if (isatty(fileno(stdout)) == 1) {
-        settings.colored = true;
+        settings.is_terminal = true;
+        // disable output buffering
+        setvbuf (stdout, NULL, _IONBF, BUFSIZ);
     };
 
     // read options
