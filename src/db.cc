@@ -59,58 +59,55 @@ Db::runChunk(Chunk * chunk)
     executeSql("savepoint chunk;");
 
     PGresult * pgres = PQexec(conn, sql.c_str());
-    if (pgres) {
-        if ((PQresultStatus(pgres) == PGRES_FATAL_ERROR) ||
-            (PQresultStatus(pgres) == PGRES_NONFATAL_ERROR)) {
-            success = false;
+    if (!pgres) {
+        log_error("PQExec failed");
+        DbException e("PQExec failed");
+        throw e;
+    }
 
-            // collect diagonstics
-            chunk->diagnostics = new Diagnostics();
+    if ((PQresultStatus(pgres) == PGRES_FATAL_ERROR) ||
+        (PQresultStatus(pgres) == PGRES_NONFATAL_ERROR)) {
+        success = false;
 
-            // error line and position in that line
-            char * statement_position = PQresultErrorField(pgres, PG_DIAG_STATEMENT_POSITION);
-            if (statement_position) {
-                int pos = atoi(statement_position);
-                if ((sql.begin()+pos) < sql.end()) {
-                    chunk->diagnostics->error_line =  chunk->start_line + std::count(sql.begin(), sql.begin()+pos, '\n');
-                }
-                else {
-                    log_error("PG_DIAG_STATEMENT_POSITION is beyond the length of sql string");
-                }
+        // collect diagonstics
+        chunk->diagnostics = new Diagnostics();
+
+        // error line and position in that line
+        char * statement_position = PQresultErrorField(pgres, PG_DIAG_STATEMENT_POSITION);
+        if (statement_position) {
+            int pos = atoi(statement_position);
+            if ((sql.begin()+pos) < sql.end()) {
+                chunk->diagnostics->error_line =  chunk->start_line + std::count(sql.begin(), sql.begin()+pos, '\n');
             }
             else {
-                //log_debug("got an empty PG_DIAG_STATEMENT_POSITION");
-                // use the first line ...
-                chunk->diagnostics->error_line = chunk->start_line;
+                log_error("PG_DIAG_STATEMENT_POSITION is beyond the length of sql string");
             }
-
-            char * sqlstate = PQresultErrorField(pgres, PG_DIAG_SQLSTATE);
-            if (sqlstate) {
-                chunk->diagnostics->sqlstate.assign(sqlstate);
-            }
-
-            char * msg_primary = PQresultErrorField(pgres, PG_DIAG_MESSAGE_PRIMARY);
-            if (msg_primary) {
-                chunk->diagnostics->msg_primary.assign(msg_primary);
-            }
-
-            char * msg_detail = PQresultErrorField(pgres, PG_DIAG_MESSAGE_DETAIL);
-            if (msg_detail) {
-                chunk->diagnostics->msg_detail.assign(msg_detail);
-            }
-
-            char * msg_hint = PQresultErrorField(pgres, PG_DIAG_MESSAGE_HINT);
-            if (msg_hint) {
-                chunk->diagnostics->msg_hint.assign(msg_hint);
-            }
-
-
         }
-    }
-    else {
-        // fatal error
-        success = false;
-        // TODO: message
+        else {
+            //log_debug("got an empty PG_DIAG_STATEMENT_POSITION");
+            // use the first line ...
+            chunk->diagnostics->error_line = chunk->start_line;
+        }
+
+        char * sqlstate = PQresultErrorField(pgres, PG_DIAG_SQLSTATE);
+        if (sqlstate) {
+            chunk->diagnostics->sqlstate.assign(sqlstate);
+        }
+
+        char * msg_primary = PQresultErrorField(pgres, PG_DIAG_MESSAGE_PRIMARY);
+        if (msg_primary) {
+            chunk->diagnostics->msg_primary.assign(msg_primary);
+        }
+
+        char * msg_detail = PQresultErrorField(pgres, PG_DIAG_MESSAGE_DETAIL);
+        if (msg_detail) {
+            chunk->diagnostics->msg_detail.assign(msg_detail);
+        }
+
+        char * msg_hint = PQresultErrorField(pgres, PG_DIAG_MESSAGE_HINT);
+        if (msg_hint) {
+            chunk->diagnostics->msg_hint.assign(msg_hint);
+        }
     }
 
     PQclear(pgres);
