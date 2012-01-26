@@ -7,9 +7,11 @@
 
 using namespace PsqlChunks;
 
+/**
+ * does not include linebreaks
+ */
 inline bool
 is_inline_whitespace( const char ch) {
-    // does not include linebreaks
     return (ch == '\t' || ch == ' ');
 }
 
