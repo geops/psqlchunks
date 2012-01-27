@@ -99,9 +99,6 @@ namespace PsqlChunks
 
             void clear();
 
-                // http://stackoverflow.com/questions/7850125/convert-this-pointer-to-string
-                // http://stackoverflow.com/questions/1255366/how-can-i-append-data-to-a-stdstring-in-hex-format
-
             friend std::ostream &operator<<(std::ostream &, PsqlChunks::Chunk&);
     };
 
