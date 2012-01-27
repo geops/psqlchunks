@@ -227,9 +227,17 @@ run_sql(chunkvector_t & chunks)
 
                 printf("> SQL         :%s\n\n", ansi_code(ANSI_RESET));
 
-                // sql
-                size_t out_start = chunk->diagnostics->error_line - settings.context_lines;
-                size_t out_end = chunk->diagnostics->error_line + settings.context_lines;
+                // output sql
+                size_t out_start = chunk->start_line;
+                size_t out_end = chunk->end_line;
+                if (settings.context_lines < (chunk->diagnostics->error_line - chunk->start_line)) {
+                    out_start = chunk->diagnostics->error_line - settings.context_lines;
+                }
+                if (settings.context_lines < (chunk->end_line - chunk->diagnostics->error_line)) {
+                    out_end = chunk->diagnostics->error_line + settings.context_lines;
+                }
+                log_debug("out_start: %u, out_end: %u", out_start, out_end);
+
                 linevector_t sql_lines = chunk->getSqlLines();
                 for (linevector_t::iterator lit = sql_lines.begin(); lit != sql_lines.end(); ++lit) {
                     if (((*lit)->number >= out_start) &&
