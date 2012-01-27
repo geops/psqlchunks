@@ -84,9 +84,8 @@ Db::runChunk(Chunk * chunk)
             }
         }
         else {
-            //log_debug("got an empty PG_DIAG_STATEMENT_POSITION");
-            // use the first line ...
-            chunk->diagnostics->error_line = chunk->start_line;
+            log_debug("got an empty PG_DIAG_STATEMENT_POSITION");
+            chunk->diagnostics->error_line = LINE_NUMBER_NOT_AVAILABLE;
         }
 
         char * sqlstate = PQresultErrorField(pgres, PG_DIAG_SQLSTATE);

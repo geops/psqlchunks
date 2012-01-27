@@ -209,13 +209,18 @@ run_sql(chunkvector_t & chunks)
             if (!run_ok && chunk->hasDiagnostics()) {
                 printf( "%s\n"
                         "%s> description : %s\n"
-                        "> line        : %d\n"
                         "> sql state   : %s\n",
                         s_fail_sep,
                         ansi_code(ANSI_BOLD),
-                        chunk->diagnostics->msg_primary.c_str(), chunk->diagnostics->error_line,
+                        chunk->diagnostics->msg_primary.c_str(),
                         chunk->diagnostics->sqlstate.c_str()
                 );
+                if (chunk->diagnostics->error_line != LINE_NUMBER_NOT_AVAILABLE) {
+                    printf("> line        : %d\n", chunk->diagnostics->error_line);
+                }
+                else {
+                    printf("> line        : not available\n");
+                }
 
 
                 if (!chunk->diagnostics->msg_detail.empty()) {
@@ -225,38 +230,44 @@ run_sql(chunkvector_t & chunks)
                     printf("> hint        : %s\n", chunk->diagnostics->msg_hint.c_str());
                 }
 
-                printf("> SQL         :%s\n\n", ansi_code(ANSI_RESET));
 
                 // output sql
-                size_t out_start = chunk->start_line;
-                size_t out_end = chunk->end_line;
-                if (settings.context_lines < (chunk->diagnostics->error_line - chunk->start_line)) {
-                    out_start = chunk->diagnostics->error_line - settings.context_lines;
-                }
-                if (settings.context_lines < (chunk->end_line - chunk->diagnostics->error_line)) {
-                    out_end = chunk->diagnostics->error_line + settings.context_lines;
-                }
-                log_debug("out_start: %u, out_end: %u", out_start, out_end);
+                if (chunk->diagnostics->error_line != LINE_NUMBER_NOT_AVAILABLE) {
+                    printf("> SQL         :%s\n\n", ansi_code(ANSI_RESET));
+                    size_t out_start = chunk->start_line;
+                    size_t out_end = chunk->end_line;
+                    if (settings.context_lines < (chunk->diagnostics->error_line - chunk->start_line)) {
+                        out_start = chunk->diagnostics->error_line - settings.context_lines;
+                    }
+                    if (settings.context_lines < (chunk->end_line - chunk->diagnostics->error_line)) {
+                        out_end = chunk->diagnostics->error_line + settings.context_lines;
+                    }
+                    log_debug("out_start: %u, out_end: %u", out_start, out_end);
 
-                linevector_t sql_lines = chunk->getSqlLines();
-                for (linevector_t::iterator lit = sql_lines.begin(); lit != sql_lines.end(); ++lit) {
-                    if (((*lit)->number >= out_start) &&
-                        ((*lit)->number <= out_end)) {
+                    linevector_t sql_lines = chunk->getSqlLines();
+                    for (linevector_t::iterator lit = sql_lines.begin(); lit != sql_lines.end(); ++lit) {
+                        if (((*lit)->number >= out_start) &&
+                            ((*lit)->number <= out_end)) {
 
-                        if ((*lit)->number == chunk->diagnostics->error_line) {
-                            printf("%s", ansi_code(ANSI_RED));
+                            if ((*lit)->number == chunk->diagnostics->error_line) {
+                                printf("%s", ansi_code(ANSI_RED));
+                            }
+                            printf("%s\n", (*lit)->contents.c_str());
+                            if ((*lit)->number == chunk->diagnostics->error_line) {
+                                printf("%s", ansi_code(ANSI_RESET));
+                            }
                         }
-                        printf("%s\n", (*lit)->contents.c_str());
-                        if ((*lit)->number == chunk->diagnostics->error_line) {
-                            printf("%s", ansi_code(ANSI_RESET));
+
+                        if ((*lit)->number >= out_end) {
+                            break;
                         }
                     }
-
-                    if ((*lit)->number >= out_end) {
-                        break;
-                    }
+                    printf("\n");
                 }
-                printf("\n%s\n", s_fail_sep);
+                else {
+                    printf("%s", ansi_code(ANSI_RESET));
+                }
+                printf("%s\n", s_fail_sep);
             }
 
             if (!run_ok && settings.abort_after_failed) {

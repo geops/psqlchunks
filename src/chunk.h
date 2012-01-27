@@ -6,6 +6,8 @@
 #include <iostream>
 #include <stdint.h>
 
+#define LINE_NUMBER_NOT_AVAILABLE   0
+
 namespace PsqlChunks
 {
 
