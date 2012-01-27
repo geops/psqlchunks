@@ -1,0 +1,10 @@
+.... some more documentation would be great.
+
+
+Limitations
+-----------
+
+- no transations inside the SQL file allowed. Will simply fail.
+- COPY statements may not be executed
+- failing DDL statments do not give the correct line number, instead they return
+  just the begining of the chunk
