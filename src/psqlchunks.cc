@@ -262,13 +262,14 @@ run_sql(chunkvector_t & chunks)
             if (settings.commit_sql) {
                 printf("%sCommit%s\n", ansi_code(ANSI_YELLOW), ansi_code(ANSI_RESET));
             }
+            else {
+                printf("%sRollback%s\n", ansi_code(ANSI_YELLOW), ansi_code(ANSI_RESET));
+            }
         }
         else {
             printf("\n%d chunks failed.\n", database.getFailedCount());
             rc = RC_E_SQL;
-            if (settings.commit_sql) {
-                printf("%sRollback%s\n", ansi_code(ANSI_YELLOW), ansi_code(ANSI_RESET));
-            }
+            printf("%sRollback%s\n", ansi_code(ANSI_YELLOW), ansi_code(ANSI_RESET));
         }
     }
     catch (DbException &e) {
