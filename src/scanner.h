@@ -32,7 +32,7 @@ namespace PsqlChunks
                 IGNORE
             };
 
-            bool has_marker(const std::string &, const std::string &, size_t , size_t &);
+            bool hasMarker(const std::string &, const std::string &, size_t , size_t &);
             Content classifyLine( std::string &, size_t &);
 
         public:

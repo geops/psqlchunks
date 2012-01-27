@@ -230,10 +230,11 @@ run_sql(chunkvector_t & chunks)
                     printf("> hint        : %s\n", chunk->diagnostics->msg_hint.c_str());
                 }
 
-
-                // output sql
+                // print sql fragment
                 if (chunk->diagnostics->error_line != LINE_NUMBER_NOT_AVAILABLE) {
                     printf("> SQL         :%s\n\n", ansi_code(ANSI_RESET));
+
+                    // calculate the size of the fragment 
                     size_t out_start = chunk->start_line;
                     size_t out_end = chunk->end_line;
                     if (settings.context_lines < (chunk->diagnostics->error_line - chunk->start_line)) {
@@ -244,6 +245,7 @@ run_sql(chunkvector_t & chunks)
                     }
                     log_debug("out_start: %u, out_end: %u", out_start, out_end);
 
+                    // output sql
                     linevector_t sql_lines = chunk->getSqlLines();
                     for (linevector_t::iterator lit = sql_lines.begin(); lit != sql_lines.end(); ++lit) {
                         if (((*lit)->number >= out_start) &&

@@ -45,7 +45,7 @@ starts_with(const std::string &haystack, const std::string& needle, size_t start
 
 
 bool
-ChunkScanner::has_marker(const std::string &haystack, const std::string& marker,
+ChunkScanner::hasMarker(const std::string &haystack, const std::string& marker,
         size_t start_pos, size_t &end_pos)
 {
     if (starts_with(haystack, marker, start_pos, true)) {
@@ -122,10 +122,10 @@ ChunkScanner::classifyLine( std::string & line, size_t & content_pos)
             else {
                 if (!is_inline_whitespace(line[c])) {
                     content_pos = c;
-                    if (has_marker(line, "start", c, content_pos)) {
+                    if (hasMarker(line, "start", c, content_pos)) {
                         cls = COMMENT_START;
                     }
-                    if (has_marker(line, "end", c, content_pos)) {
+                    if (hasMarker(line, "end", c, content_pos)) {
                         cls = COMMENT_END;
                     }
                     break;
