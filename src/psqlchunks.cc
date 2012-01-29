@@ -43,21 +43,31 @@ using namespace PsqlChunks;
 
 static const char * s_fail_sep = "-------------------------------------------------------";
 
+enum Command {
+    CONCAT,
+    LIST,
+    RUN
+};
+
+enum CommandRc {
+    OK,
+    BREAK
+};
+
 
 /* prototypes */
 void quit(const char * message);
 void print_help();
 const char * ansi_code(const char * color);
 std::string read_password();
-int run_sql(chunkvector_t & chunks);
 int handle_files(char * files[], int nufiles);
+void cmd_list_printheader();
+CommandRc cmd_list(Chunk & chunk);
+CommandRc cmd_concat(const Chunk & chunk);
+void cmd_run_print_diagnostics(Chunk & chunk);
+CommandRc cmd_run(Chunk & chunk, Db & db);
+CommandRc scan(ChunkScanner & scanner, Db & db); 
 
-
-enum Command {
-    CONCAT,
-    LIST,
-    RUN
-};
 
 struct Settings {
     const char * db_port;
@@ -70,6 +80,7 @@ struct Settings {
     Command command;
     bool is_terminal;
     unsigned int context_lines;
+    bool print_filenames;
 };
 static Settings settings = {
     NULL,       /* db_port */
@@ -81,7 +92,8 @@ static Settings settings = {
     false,      /* abort_after_failed */
     LIST,       /* command */
     false,      /* colored */
-    DEFAULT_CONTEXT_LINES   /* context_lines */
+    DEFAULT_CONTEXT_LINES,   /* context_lines */
+    true        /* print_filenames */
 };
 
 
@@ -116,6 +128,9 @@ print_help()
         "  help         display this help text\n"
         "  list         list chunks\n"
         "  run          run SQL chunks in the database\n"
+        "\n"
+        "General:\n"
+        "  -F           hide filenames from output\n"
         "\n"
         "SQL Handling:\n"
         "  -c           commit SQL to the database. Default is performing a rollback\n"
@@ -160,125 +175,243 @@ read_password()
 }
 
 
-int
-run_sql(chunkvector_t & chunks)
-{
-    const char * password = NULL;
-    int rc = RC_OK;
-    std::string prompt_passwd;
+/****** COMMAND Functions *****/
 
-    if (settings.ask_pass) {
-        printf("Password: ");
-        prompt_passwd = read_password();
-        password = prompt_passwd.c_str();
+inline void
+cmd_list_printheader()
+{
+    printf("%s start  |  end   | contents%s\n", 
+            ansi_code(ANSI_BOLD),
+            ansi_code(ANSI_RESET));
+
+}
+
+inline CommandRc
+cmd_list(Chunk & chunk)
+{
+    printf("%8d-%8d: %s\n", chunk.start_line, chunk.end_line, chunk.getDescription().c_str());
+    return OK;
+}
+
+
+inline CommandRc
+cmd_concat(const Chunk & chunk)
+{
+    std::cout << chunk << std::endl;
+    return OK;
+}
+
+
+inline void
+cmd_run_print_diagnostics(Chunk & chunk) {
+    if (chunk.hasDiagnostics()) {
+        printf( "%s\n"
+                "%s> description : %s\n"
+                "> sql state   : %s\n",
+                s_fail_sep,
+                ansi_code(ANSI_BOLD),
+                chunk.diagnostics->msg_primary.c_str(),
+                chunk.diagnostics->sqlstate.c_str()
+        );
+        if (chunk.diagnostics->error_line != LINE_NUMBER_NOT_AVAILABLE) {
+            printf("> line        : %d\n", chunk.diagnostics->error_line);
+        }
+        else {
+            printf("> line        : not available\n");
+        }
+
+
+        if (!chunk.diagnostics->msg_detail.empty()) {
+            printf("> details     : %s\n", chunk.diagnostics->msg_detail.c_str());
+        }
+        if (!chunk.diagnostics->msg_hint.empty()) {
+            printf("> hint        : %s\n", chunk.diagnostics->msg_hint.c_str());
+        }
+
+        // print sql fragment
+        if (chunk.diagnostics->error_line != LINE_NUMBER_NOT_AVAILABLE) {
+            printf("> SQL         :%s\n\n", ansi_code(ANSI_RESET));
+
+            // calculate the size of the fragment 
+            size_t out_start = chunk.start_line;
+            size_t out_end = chunk.end_line;
+            if (settings.context_lines < (chunk.diagnostics->error_line - chunk.start_line)) {
+                out_start = chunk.diagnostics->error_line - settings.context_lines;
+            }
+            if (settings.context_lines < (chunk.end_line - chunk.diagnostics->error_line)) {
+                out_end = chunk.diagnostics->error_line + settings.context_lines;
+            }
+            log_debug("out_start: %u, out_end: %u", out_start, out_end);
+
+            // output sql
+            linevector_t sql_lines = chunk.getSqlLines();
+            for (linevector_t::iterator lit = sql_lines.begin(); lit != sql_lines.end(); ++lit) {
+                if (((*lit)->number >= out_start) &&
+                    ((*lit)->number <= out_end)) {
+
+                    if ((*lit)->number == chunk.diagnostics->error_line) {
+                        printf("%s", ansi_code(ANSI_RED));
+                    }
+                    printf("%s\n", (*lit)->contents.c_str());
+                    if ((*lit)->number == chunk.diagnostics->error_line) {
+                        printf("%s", ansi_code(ANSI_RESET));
+                    }
+                }
+
+                if ((*lit)->number >= out_end) {
+                    break;
+                }
+            }
+            printf("\n");
+        }
+        else {
+            printf("%s", ansi_code(ANSI_RESET));
+        }
+        printf("%s\n", s_fail_sep);
     }
 
-    log_debug("running chunks");
+}
+
+inline CommandRc
+cmd_run(Chunk & chunk, Db & db)
+{
+    if (settings.is_terminal) {
+        printf("RUN   [%d-%d] %s", chunk.start_line, chunk.end_line, chunk.getDescription().c_str());
+    }
+
+    bool run_ok = db.runChunk(chunk);
+    if (settings.is_terminal) {
+        printf("\r");
+    }
+
+    if (run_ok) {
+        printf("%sOK%s  ", ansi_code(ANSI_GREEN), ansi_code(ANSI_RESET));
+    }
+    else {
+        printf("%sFAIL%s", ansi_code(ANSI_RED), ansi_code(ANSI_RESET));
+    }
+    printf("  [%d-%d] %s\n", chunk.start_line, chunk.end_line, chunk.getDescription().c_str());
+
+    if (!run_ok) {
+        cmd_run_print_diagnostics(chunk);
+        if (settings.abort_after_failed) {
+            printf("Chunk failed. Aborting.\n");
+            return BREAK;
+        }
+    }
+
+    return OK;
+}
+
+
+void 
+print_header(const char * filename)
+{
+    if (settings.print_filenames) {
+        printf("\n----# File: %s%s%s\n", ansi_code(ANSI_BLUE), filename,
+                ansi_code(ANSI_RESET));
+    }
+
+    switch (settings.command) {
+        case LIST:
+            cmd_list_printheader();
+            break;
+        default:
+            break;
+
+    }
+}
+
+
+CommandRc
+scan(ChunkScanner & scanner, Db & db) 
+{
+    Chunk chunk;
+    CommandRc crc = OK;
+
+    while (scanner.nextChunk(chunk)) {
+        switch (settings.command) {
+            case CONCAT:
+                crc = cmd_concat(chunk);
+                break;
+            case LIST:
+                crc = cmd_list(chunk);
+                break;
+            case RUN:
+                crc = cmd_run(chunk, db);
+                break;
+        }
+
+        if (crc != OK) {
+            break;
+        }
+    }
+    return crc;
+}
+
+
+int
+handle_files(char * files[], int nufiles)
+{
+    CommandRc crc = OK;
+    int rc = RC_OK;
+    Db db;
 
     try {
-        Db database(settings.db_host, settings.db_name, settings.db_port, settings.db_user, password);
-        if (!database.isConnected()) {
-            std::cerr << database.getErrorMessage() << std::endl;
-            return RC_E_USAGE;
+        // setup the database connection if the command
+        // requires one
+        if (settings.command == RUN) {
+            const char * password = NULL;
+            std::string prompt_passwd;
+
+            if (settings.ask_pass) {
+                printf("Password: ");
+                prompt_passwd = read_password();
+                password = prompt_passwd.c_str();
+            }
+
+            bool connected = db.connect(settings.db_host, settings.db_name, 
+                                        settings.db_port, settings.db_user, password);
+            if (!connected) {
+                fprintf(stderr, "%s\n", db.getErrorMessage().c_str());
+                return RC_E_USAGE;
+            }
+
+            db.setCommit(settings.commit_sql);
         }
 
-        database.setCommit(settings.commit_sql);
-
-        // run all chunks
-        for (chunkvector_t::iterator chit = chunks.begin(); chit != chunks.end(); ++chit) {
-            Chunk * chunk = *chit;
-
-            if (settings.is_terminal) {
-                printf("RUN   [%d-%d] %s", chunk->start_line, chunk->end_line, chunk->getDescription().c_str());
-            }
-
-            bool run_ok = database.runChunk(chunk);
-            if (settings.is_terminal) {
-                printf("\r");
-            }
-
-            if (run_ok) {
-                printf("%sOK%s  ", ansi_code(ANSI_GREEN), ansi_code(ANSI_RESET));
+        for( int i = 0; ((i < nufiles) && (crc == OK)); i++ ) {
+            if (strcmp(files[i], "-") == 0) {
+                // read from stdin
+                print_header("stdin");
+                ChunkScanner chunkscanner(std::cin);
+                crc = scan(chunkscanner, db);
             }
             else {
-                printf("%sFAIL%s", ansi_code(ANSI_RED), ansi_code(ANSI_RESET));
-            }
+                print_header(files[i]);
 
-            printf("  [%d-%d] %s\n", chunk->start_line, chunk->end_line, chunk->getDescription().c_str());
+                // open the file
+                std::ifstream is;
+                is.open(files[i]);
 
-            if (!run_ok && chunk->hasDiagnostics()) {
-                printf( "%s\n"
-                        "%s> description : %s\n"
-                        "> sql state   : %s\n",
-                        s_fail_sep,
-                        ansi_code(ANSI_BOLD),
-                        chunk->diagnostics->msg_primary.c_str(),
-                        chunk->diagnostics->sqlstate.c_str()
-                );
-                if (chunk->diagnostics->error_line != LINE_NUMBER_NOT_AVAILABLE) {
-                    printf("> line        : %d\n", chunk->diagnostics->error_line);
+                if (is.fail()) {
+                    fprintf(stderr, "Could not open file \"%s\".\n", files[i]);
+                    rc = RC_E_USAGE;
+                    break;
                 }
-                else {
-                    printf("> line        : not available\n");
-                }
-
-
-                if (!chunk->diagnostics->msg_detail.empty()) {
-                    printf("> details     : %s\n", chunk->diagnostics->msg_detail.c_str());
-                }
-                if (!chunk->diagnostics->msg_hint.empty()) {
-                    printf("> hint        : %s\n", chunk->diagnostics->msg_hint.c_str());
-                }
-
-                // print sql fragment
-                if (chunk->diagnostics->error_line != LINE_NUMBER_NOT_AVAILABLE) {
-                    printf("> SQL         :%s\n\n", ansi_code(ANSI_RESET));
-
-                    // calculate the size of the fragment 
-                    size_t out_start = chunk->start_line;
-                    size_t out_end = chunk->end_line;
-                    if (settings.context_lines < (chunk->diagnostics->error_line - chunk->start_line)) {
-                        out_start = chunk->diagnostics->error_line - settings.context_lines;
-                    }
-                    if (settings.context_lines < (chunk->end_line - chunk->diagnostics->error_line)) {
-                        out_end = chunk->diagnostics->error_line + settings.context_lines;
-                    }
-                    log_debug("out_start: %u, out_end: %u", out_start, out_end);
-
-                    // output sql
-                    linevector_t sql_lines = chunk->getSqlLines();
-                    for (linevector_t::iterator lit = sql_lines.begin(); lit != sql_lines.end(); ++lit) {
-                        if (((*lit)->number >= out_start) &&
-                            ((*lit)->number <= out_end)) {
-
-                            if ((*lit)->number == chunk->diagnostics->error_line) {
-                                printf("%s", ansi_code(ANSI_RED));
-                            }
-                            printf("%s\n", (*lit)->contents.c_str());
-                            if ((*lit)->number == chunk->diagnostics->error_line) {
-                                printf("%s", ansi_code(ANSI_RESET));
-                            }
-                        }
-
-                        if ((*lit)->number >= out_end) {
-                            break;
-                        }
-                    }
-                    printf("\n");
-                }
-                else {
-                    printf("%s", ansi_code(ANSI_RESET));
-                }
-                printf("%s\n", s_fail_sep);
-            }
-
-            if (!run_ok && settings.abort_after_failed) {
-                printf("Chunk failed. Aborting.\n");
-                break;
+                ChunkScanner chunkscanner(is);
+                crc = scan(chunkscanner, db);
             }
         }
+    }
+    catch (DbException &e) {
+        printf("Fatal error: %s\n", e.what());
+        return RC_E_DB;
+    }
 
-        if (database.getFailedCount() == 0) {
+    //
+    if ((rc == RC_OK) && (settings.command == RUN)) {
+        if (db.getFailedCount() == 0) {
             printf("\nAll chunks passed.\n");
             if (settings.commit_sql) {
                 printf("%sCommit%s\n", ansi_code(ANSI_YELLOW), ansi_code(ANSI_RESET));
@@ -288,67 +421,11 @@ run_sql(chunkvector_t & chunks)
             }
         }
         else {
-            printf("\n%d chunks failed.\n", database.getFailedCount());
+            printf("\n%d chunks failed.\n", db.getFailedCount());
             rc = RC_E_SQL;
             printf("%sRollback%s\n", ansi_code(ANSI_YELLOW), ansi_code(ANSI_RESET));
         }
     }
-    catch (DbException &e) {
-        printf("Fatal error: %s\n", e.what());
-        rc = RC_E_DB;
-    }
-
-    return rc;
-}
-
-
-int
-handle_files(char * files[], int nufiles)
-{
-    ChunkScanner chunkscanner;
-    for( int i = 0; i < nufiles; i++ ) {
-        if (strcmp(files[i], "-") == 0) {
-            // read from stdin
-            chunkscanner.scan(std::cin);
-        }
-        else {
-            // open the file
-            std::ifstream is;
-            is.open(files[i]);
-
-            if (is.fail()) {
-                fprintf(stderr, "Could not open file \"%s\".\n", files[i]);
-                return RC_E_USAGE;
-            }
-            chunkscanner.scan(is);
-        }
-    }
-
-    int rc = RC_OK;
-    switch (settings.command) {
-        case CONCAT:
-            for (chunkvector_t::iterator chit = chunkscanner.chunks.begin(); chit != chunkscanner.chunks.end(); ++chit) {
-                Chunk * chunk = *chit;
-                std::cout << *chunk << std::endl;
-            }
-            break;
-
-        case LIST:
-            printf("%s start  |  end   | contents%s\n", 
-                    ansi_code(ANSI_BOLD),
-                    ansi_code(ANSI_RESET));
-            for (chunkvector_t::iterator chit = chunkscanner.chunks.begin(); chit != chunkscanner.chunks.end(); ++chit) {
-                Chunk * chunk = *chit;
-                printf("%8d-%8d: %s\n", chunk->start_line, chunk->end_line, chunk->getDescription().c_str());
-            }
-            break;
-
-        case RUN:
-            rc = run_sql(chunkscanner.chunks);
-            break;
-
-    }
-
 
     return rc;
 }
@@ -367,7 +444,7 @@ main(int argc, char * argv[] )
     };
 
     // read options
-    while ( (opt = getopt(argc, argv, "l:p:U:d:h:Wca")) != -1) {
+    while ( (opt = getopt(argc, argv, "l:p:U:d:h:WcaF")) != -1) {
         switch (opt) {
             case 'p': /* port */
                 settings.db_port = optarg;
@@ -406,6 +483,9 @@ main(int argc, char * argv[] )
                 break;
             case 'a':
                 settings.abort_after_failed = true;
+                break;
+            case 'F':
+                settings.print_filenames = false;
                 break;
             default:
                 quit("Unknown option.");

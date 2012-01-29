@@ -8,14 +8,26 @@
 using namespace PsqlChunks;
 
 
-Db::Db( const char * host, const char * db_name,  const char * port, const char * user, const char * passwd)
+Db::Db()
     : conn(NULL), do_commit(false), failed_count(0), in_transaction(false)
 {
-    conn = PQsetdbLogin(host, port, NULL, NULL, db_name, user, passwd);
 }
 
 
 Db::~Db()
+{
+    disconnect();
+}
+
+bool
+Db::connect( const char * host, const char * db_name,  const char * port, const char * user, const char * passwd)
+{
+    conn = PQsetdbLogin(host, port, NULL, NULL, db_name, user, passwd);
+    return isConnected();
+}
+
+void
+Db::disconnect()
 {
     finish();
     PQfinish(conn);
@@ -37,13 +49,16 @@ Db::isConnected()
 std::string
 Db::getErrorMessage()
 {
-    std::string msg(PQerrorMessage(conn));
+    std::string msg;
+    if (conn) {
+        msg.assign(PQerrorMessage(conn));
+    }
     return msg;
 }
 
 
 bool
-Db::runChunk(Chunk * chunk)
+Db::runChunk(Chunk & chunk)
 {
     bool success = true;
 
@@ -54,7 +69,7 @@ Db::runChunk(Chunk * chunk)
 
     begin();
 
-    std::string sql = chunk->getSql();
+    std::string sql = chunk.getSql();
 
     executeSql("savepoint chunk;");
 
@@ -70,14 +85,15 @@ Db::runChunk(Chunk * chunk)
         success = false;
 
         // collect diagonstics
-        chunk->diagnostics = new Diagnostics();
+        chunk.diagnostics = new Diagnostics();
 
         // error line and position in that line
         char * statement_position = PQresultErrorField(pgres, PG_DIAG_STATEMENT_POSITION);
         if (statement_position) {
             int pos = atoi(statement_position);
             if ((sql.begin()+pos) < sql.end()) {
-                chunk->diagnostics->error_line =  chunk->start_line + std::count(sql.begin(), sql.begin()+pos, '\n');
+                chunk.diagnostics->error_line = chunk.start_line 
+                                + std::count(sql.begin(), sql.begin()+pos, '\n');
             }
             else {
                 log_error("PG_DIAG_STATEMENT_POSITION is beyond the length of sql string");
@@ -85,27 +101,27 @@ Db::runChunk(Chunk * chunk)
         }
         else {
             log_debug("got an empty PG_DIAG_STATEMENT_POSITION");
-            chunk->diagnostics->error_line = LINE_NUMBER_NOT_AVAILABLE;
+            chunk.diagnostics->error_line = LINE_NUMBER_NOT_AVAILABLE;
         }
 
         char * sqlstate = PQresultErrorField(pgres, PG_DIAG_SQLSTATE);
         if (sqlstate) {
-            chunk->diagnostics->sqlstate.assign(sqlstate);
+            chunk.diagnostics->sqlstate.assign(sqlstate);
         }
 
         char * msg_primary = PQresultErrorField(pgres, PG_DIAG_MESSAGE_PRIMARY);
         if (msg_primary) {
-            chunk->diagnostics->msg_primary.assign(msg_primary);
+            chunk.diagnostics->msg_primary.assign(msg_primary);
         }
 
         char * msg_detail = PQresultErrorField(pgres, PG_DIAG_MESSAGE_DETAIL);
         if (msg_detail) {
-            chunk->diagnostics->msg_detail.assign(msg_detail);
+            chunk.diagnostics->msg_detail.assign(msg_detail);
         }
 
         char * msg_hint = PQresultErrorField(pgres, PG_DIAG_MESSAGE_HINT);
         if (msg_hint) {
-            chunk->diagnostics->msg_hint.assign(msg_hint);
+            chunk.diagnostics->msg_hint.assign(msg_hint);
         }
     }
 

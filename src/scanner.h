@@ -13,10 +13,14 @@ namespace PsqlChunks
     {
         protected:
 
+            std::istream & strm;
+            Chunk chunkCache;
+
             linenumber_t line_number;
 
             enum Content {
                 SEP,        // seperator
+                FILE_MARKER,//
                 COMMENT,    // sql single line comment
                 COMMENT_END,
                 COMMENT_START,
@@ -29,21 +33,34 @@ namespace PsqlChunks
                 CAPTURE_START_COMMENT,
                 CAPTURE_END_COMMENT,
                 NEW_CHUNK,
-                IGNORE
+                IGNORE,
+                COPY_CACHED
             };
 
             bool hasMarker(const std::string &, const std::string &, size_t , size_t &);
             Content classifyLine( std::string &, size_t &);
 
+            // state machine 
+            Content stm_last_cls;
+            State stm_state;
+            linenumber_t last_nonempty_line;
+
+
         public:
-            ChunkScanner();
+            ChunkScanner(std::istream &);
             ~ChunkScanner();
-            void scan( std::istream &);
+            //void scan( std::istream &);
 
-            /** remove all scanned chunks from memory */
-            void clear();
 
-            chunkvector_t chunks;
+            /** read next chunk
+             *
+             * returns false on failure
+             */
+            bool nextChunk( Chunk& );
+
+            bool eof();
+
+            //chunkvector_t chunks;
     };
 
 };

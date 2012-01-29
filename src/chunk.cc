@@ -11,8 +11,10 @@ static const char * s_comment_start = "-- ";
 
 
 // prototypes for local functions
-void write_block(std::ostream &stream, const char * block_type, std::string & contents);
+void write_block(std::ostream &stream, const char * block_type, const std::string & contents);
 
+
+// ### Line ############################################
 
 Line::Line()
     : number(0), contents("")
@@ -25,6 +27,8 @@ Line::Line(std::string _contents, linenumber_t _number)
 {
 }
 
+
+// ### Chunk ############################################
 
 Chunk::Chunk()
     : sql_lines(), start_comment(""), end_comment(""), start_line(0), end_line(0),
@@ -57,6 +61,37 @@ Chunk::~Chunk()
     clear();
 }
 
+Chunk& 
+Chunk::operator=(const Chunk &other) {
+
+    // check for self-assignment
+    if (this == &other) {
+        return *this;
+    }
+
+    // deallocate this chunk
+    clear();
+
+    start_comment = other.start_comment;
+    end_comment = other.end_comment;
+    start_line = other.start_line;
+    end_line = other.end_line;
+
+    if (!other.sql_lines.empty()) {
+        for (linevector_t::const_iterator lit = other.sql_lines.begin(); 
+                lit != other.sql_lines.end(); ++lit) {
+            Line * n_line = new Line(**lit);
+            sql_lines.push_back(n_line);
+
+        }
+    }
+    
+    if (other.diagnostics) {
+        diagnostics = new Diagnostics(*other.diagnostics);
+    }
+
+    return *this;
+}
 
 void
 Chunk::appendGeneric(std::string & target, std::string & fragment)
@@ -105,7 +140,7 @@ Chunk::addLineNumber( linenumber_t lno )
 }
 
 
-std::string
+const std::string
 Chunk::getDescription()
 {
     std::string desc = start_comment;
@@ -114,7 +149,7 @@ Chunk::getDescription()
 }
 
 
-std::string
+const std::string
 Chunk::getSql()
 {
     std::stringstream sqlstream;
@@ -133,11 +168,11 @@ namespace PsqlChunks
      * write the contents of a chung to a stream
      */
     std::ostream &
-    operator<<(std::ostream &stream, Chunk &chunk)
+    operator<<(std::ostream &stream, const Chunk &chunk)
     {
         write_block(stream, "start", chunk.start_comment);
 
-        for (linevector_t::iterator lit = chunk.sql_lines.begin(); lit != chunk.sql_lines.end(); ++lit) {
+        for (linevector_t::const_iterator lit = chunk.sql_lines.begin(); lit != chunk.sql_lines.end(); ++lit) {
             stream << (*lit)->contents << std::endl;
         }
 
@@ -170,7 +205,7 @@ namespace PsqlChunks
  * ---------------------------------------------------------
  */
 void
-write_block(std::ostream &stream, const char * block_type, std::string & contents)
+write_block(std::ostream &stream, const char * block_type, const std::string & contents)
 {
 
     stream << s_chunk_sep << std::endl;

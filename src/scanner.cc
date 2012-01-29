@@ -69,27 +69,25 @@ ChunkScanner::hasMarker(const std::string &haystack, const std::string& marker,
 }
 
 
-ChunkScanner::ChunkScanner()
-    :   line_number(1), chunks()
+ChunkScanner::ChunkScanner( std::istream & _strm )
+    :   strm(_strm),
+        chunkCache(),
+        line_number(1),
+        stm_last_cls(EMPTY),
+        stm_state(CAPTURE_SQL),
+        last_nonempty_line(1)
 {
 }
 
 
 ChunkScanner::~ChunkScanner()
 {
-    clear();
 }
 
-
-void
-ChunkScanner::clear()
+bool
+ChunkScanner::eof()
 {
-    // free the chunks
-    for (chunkvector_t::iterator chit = chunks.begin(); chit != chunks.end(); ++chit) {
-        Chunk * chunk = *chit;
-        delete chunk;
-    }
-    chunks.clear();
+    return !strm.good();
 }
 
 
@@ -109,6 +107,12 @@ ChunkScanner::classifyLine( std::string & line, size_t & content_pos)
         else {
             if (dash_counter == 2) {
                 cls = COMMENT;
+            }
+            else if ((dash_counter >= 4) and (line[c] == '#')) {
+                // File marker from previous concat
+                cls = FILE_MARKER;
+                content_pos = c;
+                break;
             }
             else if (!is_inline_whitespace(line[c])) {
                 cls = OTHER;
@@ -141,103 +145,113 @@ ChunkScanner::classifyLine( std::string & line, size_t & content_pos)
 }
 
 
-void
-ChunkScanner::scan( std::istream &is )
+bool
+ChunkScanner::nextChunk( Chunk &chunk )
 {
-    Content last_cls = EMPTY;
-    State state = CAPTURE_SQL;
-    linenumber_t last_nonempty_line = line_number;
-    Chunk * chunk_ptr = new Chunk(); // TODO: handle bad_alloc
+    chunk.clear();
 
-    while (is.good()) {
+    if (stm_state == COPY_CACHED) {
+        // todo: use copy operator
+        chunk = chunkCache;
+        chunkCache.clear();
+        stm_state = NEW_CHUNK;
+    }
+
+    while (strm.good()) {
         std::string line;
-        getline(is, line);
+        getline(strm, line);
 
         size_t content_pos;
         Content cls = classifyLine(line, content_pos);
         switch (cls) {
             case OTHER:
-                state = CAPTURE_SQL;
+                stm_state = CAPTURE_SQL;
+                break;
+            case FILE_MARKER:
+                stm_state = IGNORE;
                 break;
             case SEP:
-                state = IGNORE;
+                stm_state = IGNORE;
                 break;
             case COMMENT:
-                if ((state != CAPTURE_END_COMMENT) && (state != CAPTURE_START_COMMENT) && (state != NEW_CHUNK)) {
-                    state = CAPTURE_SQL;
+                if ((stm_state != CAPTURE_END_COMMENT) && (stm_state != CAPTURE_START_COMMENT) 
+                        && (stm_state != NEW_CHUNK)) {
+                    stm_state = CAPTURE_SQL;
                 }
-                else if (state == NEW_CHUNK) {
-                    state = CAPTURE_START_COMMENT;
+                else if (stm_state == NEW_CHUNK) {
+                    stm_state = CAPTURE_START_COMMENT;
                 }
                 break;
             case COMMENT_START:
-                if (last_cls == SEP) {
-                    state = NEW_CHUNK;
+                if (stm_last_cls == SEP) {
+                    stm_state = NEW_CHUNK;
                 }
-                else if (last_cls == COMMENT_START) {
-                    state = CAPTURE_START_COMMENT;
+                else if (stm_last_cls == COMMENT_START) {
+                    stm_state = CAPTURE_START_COMMENT;
                 }
                 else {
-                    state = CAPTURE_SQL;
+                    stm_state = CAPTURE_SQL;
                 }
                 break;
             case COMMENT_END:
-                if (last_cls == SEP) {
-                    state = CAPTURE_END_COMMENT;
+                if (stm_last_cls == SEP) {
+                    stm_state = CAPTURE_END_COMMENT;
                 }
                 else {
-                    state = CAPTURE_SQL;
+                    stm_state = CAPTURE_SQL;
                 }
                 break;
             case EMPTY:
                 // remove leading empty lines
-                state = IGNORE;
+                stm_state = IGNORE;
                 break;
         }
 
-        switch (state) {
+        switch (stm_state) {
             case CAPTURE_SQL:
                 // re-add empty lines in case we skipped some inbetween the
                 // sql lines
-                if (chunk_ptr->hasSql()) {
+                if (chunk.hasSql()) {
                     for (unsigned int i = 0; i < (line_number - 1 - last_nonempty_line); i++) {
-                        chunk_ptr->appendSqlLine("", i+last_nonempty_line);
+                        chunk.appendSqlLine("", i+last_nonempty_line);
                     }
                 }
                 // append the sql and set the min max line numbers
-                chunk_ptr->appendSqlLine(line, line_number);
+                chunk.appendSqlLine(line, line_number);
                 break;
             case NEW_CHUNK:
-                if (chunk_ptr->hasSql()) {
-                    chunks.push_back(chunk_ptr);
-                    chunk_ptr = new Chunk(); // TODO: handle bad_alloc
-                }
-                else {
-                    chunk_ptr->clear();
+                if (chunk.hasSql()) {
+                    stm_state = COPY_CACHED;
+                    chunkCache.clear();
+                    chunkCache.appendStartComment( line.substr(content_pos, std::string::npos ) );
+                    return true;
                 }
             case CAPTURE_START_COMMENT:
-                chunk_ptr->appendStartComment( line.substr(content_pos, std::string::npos));
+                chunk.appendStartComment( line.substr(content_pos, std::string::npos));
                 break;
             case CAPTURE_END_COMMENT:
-                chunk_ptr->appendEndComment( line.substr(content_pos, std::string::npos));
+                chunk.appendEndComment( line.substr(content_pos, std::string::npos));
                 break;
             case IGNORE:
                 break;
+            case COPY_CACHED:
+                log_error("stm reached COPY_CACHED. this should never happen");
+                return false;
         }
 
-        if (state != IGNORE) {
+        if (stm_state != IGNORE) {
             last_nonempty_line = line_number;
         }
 
-        last_cls = cls;
+        stm_last_cls = cls;
         line_number++;
     }
 
-    if (chunk_ptr->hasSql()) {
-        chunks.push_back(chunk_ptr);
+    // remove chunk contents if they are incomplete
+    if (!chunk.hasSql()) {
+        chunk.clear();
+        return false;
     }
-    else {
-        delete chunk_ptr;
-    }
+    return true;
 }
 

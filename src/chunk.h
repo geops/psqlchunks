@@ -42,7 +42,6 @@ namespace PsqlChunks
 
             Diagnostics() : error_line(0), status(Ok), sqlstate(""), msg_primary(""),
                     msg_detail(""), msg_hint("") {};
-
     };
 
 
@@ -51,7 +50,6 @@ namespace PsqlChunks
 
         private:
             Chunk(const Chunk&);
-            Chunk& operator=(const Chunk&);
 
         protected:
             linevector_t sql_lines;
@@ -74,17 +72,19 @@ namespace PsqlChunks
             Chunk();
             ~Chunk();
 
+            Chunk& operator=(const Chunk&);
+
             void appendSqlLine(std::string , linenumber_t);
             void appendStartComment(std::string );
             void appendEndComment(std::string );
-            std::string getSql();
+            const std::string getSql();
 
             bool hasSql()
             {
                 return !sql_lines.empty();
             }
 
-            linevector_t & getSqlLines()
+            const linevector_t & getSqlLines()
             {
                 return sql_lines;
             }
@@ -95,11 +95,11 @@ namespace PsqlChunks
             }
 
             /** get a description for the chunk. single line */
-            std::string getDescription();
+            const std::string getDescription();
 
             void clear();
 
-            friend std::ostream &operator<<(std::ostream &, PsqlChunks::Chunk&);
+            friend std::ostream &operator<<(std::ostream &, const PsqlChunks::Chunk&);
     };
 
     typedef std::vector<Chunk*> chunkvector_t;

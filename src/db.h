@@ -39,13 +39,18 @@ namespace PsqlChunks
             void begin();
             void executeSql(const char *);
 
+
+
         private:
             Db(const Db&);
             const Db& operator=(const Db&);
 
         public:
-            Db( const char * host, const char * db_name, const char * port, const char * user, const char * passwd);
+            Db();
             ~Db();
+
+            bool connect( const char * host, const char * db_name, const char * port, const char * user, const char * passwd);
+            void disconnect();
 
             std::string getErrorMessage();
             bool isConnected();
@@ -60,7 +65,7 @@ namespace PsqlChunks
                 return failed_count;
             }
 
-            bool runChunk(Chunk * chunk);
+            bool runChunk(Chunk & chunk);
             void finish();
     };
 };
