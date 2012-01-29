@@ -66,7 +66,7 @@ CommandRc cmd_list(Chunk & chunk);
 CommandRc cmd_concat(const Chunk & chunk);
 void cmd_run_print_diagnostics(Chunk & chunk);
 CommandRc cmd_run(Chunk & chunk, Db & db);
-CommandRc scan(ChunkScanner & scanner, Db & db); 
+CommandRc scan(ChunkScanner & scanner, Db & db);
 
 
 struct Settings {
@@ -180,7 +180,7 @@ read_password()
 inline void
 cmd_list_printheader()
 {
-    printf("%s start  |  end   | contents%s\n", 
+    printf("%s start  |  end   | contents%s\n",
             ansi_code(ANSI_BOLD),
             ansi_code(ANSI_RESET));
 
@@ -217,7 +217,8 @@ cmd_run_print_diagnostics(Chunk & chunk) {
             printf("> line        : %d\n", chunk.diagnostics->error_line);
         }
         else {
-            printf("> line        : not available\n");
+            printf("> line        : not available [chunk %d-%d]\n",
+                        chunk.start_line, chunk.end_line);
         }
 
 
@@ -232,7 +233,7 @@ cmd_run_print_diagnostics(Chunk & chunk) {
         if (chunk.diagnostics->error_line != LINE_NUMBER_NOT_AVAILABLE) {
             printf("> SQL         :%s\n\n", ansi_code(ANSI_RESET));
 
-            // calculate the size of the fragment 
+            // calculate the size of the fragment
             size_t out_start = chunk.start_line;
             size_t out_end = chunk.end_line;
             if (settings.context_lines < (chunk.diagnostics->error_line - chunk.start_line)) {
@@ -304,7 +305,7 @@ cmd_run(Chunk & chunk, Db & db)
 }
 
 
-void 
+void
 print_header(const char * filename)
 {
     if (settings.print_filenames) {
@@ -324,7 +325,7 @@ print_header(const char * filename)
 
 
 CommandRc
-scan(ChunkScanner & scanner, Db & db) 
+scan(ChunkScanner & scanner, Db & db)
 {
     Chunk chunk;
     CommandRc crc = OK;
@@ -370,7 +371,7 @@ handle_files(char * files[], int nufiles)
                 password = prompt_passwd.c_str();
             }
 
-            bool connected = db.connect(settings.db_host, settings.db_name, 
+            bool connected = db.connect(settings.db_host, settings.db_name,
                                         settings.db_port, settings.db_user, password);
             if (!connected) {
                 fprintf(stderr, "%s\n", db.getErrorMessage().c_str());
