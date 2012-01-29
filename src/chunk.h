@@ -56,9 +56,7 @@ namespace PsqlChunks
             std::string start_comment;
             std::string end_comment;
 
-            void appendGeneric(std::string &, std::string &);
             void addLineNumber(linenumber_t);
-
 
         public:
             /** the line number the contents of the chunk started */

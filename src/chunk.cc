@@ -11,7 +11,8 @@ static const char * s_comment_start = "-- ";
 
 
 // prototypes for local functions
-void write_block(std::ostream &stream, const char * block_type, const std::string & contents);
+void writeBlock(std::ostream &stream, const char * block_type, const std::string & contents);
+inline void stringAppend(std::string & target, std::string & fragment);
 
 
 // ### Line ############################################
@@ -93,15 +94,6 @@ Chunk::operator=(const Chunk &other) {
     return *this;
 }
 
-void
-Chunk::appendGeneric(std::string & target, std::string & fragment)
-{
-    if (!target.empty()) {
-        target.append("\n");
-    }
-    target.append(fragment);
-}
-
 
 void
 Chunk::appendSqlLine(std::string linetext, linenumber_t line_number ) {
@@ -117,13 +109,13 @@ Chunk::appendSqlLine(std::string linetext, linenumber_t line_number ) {
 
 void
 Chunk::appendStartComment( std::string  fragment ) {
-    appendGeneric(start_comment, fragment);
+    stringAppend(start_comment, fragment);
 }
 
 
 void
 Chunk::appendEndComment( std::string fragment ) {
-    appendGeneric(end_comment, fragment);
+    stringAppend(end_comment, fragment);
 }
 
 
@@ -170,17 +162,17 @@ namespace PsqlChunks
     std::ostream &
     operator<<(std::ostream &stream, const Chunk &chunk)
     {
-        write_block(stream, "start", chunk.start_comment);
+        writeBlock(stream, "start", chunk.start_comment);
 
         for (linevector_t::const_iterator lit = chunk.sql_lines.begin(); lit != chunk.sql_lines.end(); ++lit) {
             stream << (*lit)->contents << std::endl;
         }
 
         if (chunk.end_comment.empty()) {
-            write_block(stream, "end", chunk.start_comment);
+            writeBlock(stream, "end", chunk.start_comment);
         }
         else {
-            write_block(stream, "end", chunk.end_comment);
+            writeBlock(stream, "end", chunk.end_comment);
         }
 
         return stream;
@@ -205,7 +197,7 @@ namespace PsqlChunks
  * ---------------------------------------------------------
  */
 void
-write_block(std::ostream &stream, const char * block_type, const std::string & contents)
+writeBlock(std::ostream &stream, const char * block_type, const std::string & contents)
 {
 
     stream << s_chunk_sep << std::endl;
@@ -226,6 +218,16 @@ write_block(std::ostream &stream, const char * block_type, const std::string & c
     }
 
     stream << s_chunk_sep << std::endl;
+}
+
+
+inline void
+stringAppend(std::string & target, std::string & fragment)
+{
+    if (!target.empty()) {
+        target.append("\n");
+    }
+    target.append(fragment);
 }
 
 
