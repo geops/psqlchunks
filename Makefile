@@ -13,7 +13,12 @@ PQ_LIBS=-lpq
 PQ_FLAGS=
 PQ_INCLUDES=-I $(shell $(PG_CONFIG) --includedir)
 
-CFLAGS=-Wall -Wextra -D_XOPEN_SOURCE=600 $(DEBUG)
+CFLAGS=-Wall -Wextra \
+	-Wno-format-extra-args \
+	-Wformat-nonliteral \
+	-Wformat-security \
+	-Wformat=2 \
+	-D_XOPEN_SOURCE=600 $(DEBUG)
 ifeq ($(strip $(DEBUG)), )
 	# production build
 	CFLAGS+=-O2
