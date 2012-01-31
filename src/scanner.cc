@@ -224,6 +224,7 @@ ChunkScanner::nextChunk( Chunk &chunk )
                     stm_state = COPY_CACHED;
                     chunkCache.clear();
                     chunkCache.appendStartComment( line.substr(content_pos, std::string::npos ) );
+                    line_number++;
                     return true;
                 }
             case CAPTURE_START_COMMENT:
