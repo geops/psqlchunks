@@ -11,8 +11,8 @@ static const char * s_comment_start = "-- ";
 
 
 // prototypes for local functions
-void writeBlock(std::ostream &stream, const char * block_type, const std::string & contents);
-inline void stringAppend(std::string & target, std::string & fragment);
+void static writeBlock(std::ostream &stream, const char * block_type, const std::string & contents);
+void inline static stringAppend(std::string & target, std::string & fragment);
 
 
 // ### Line ############################################
@@ -196,7 +196,7 @@ namespace PsqlChunks
  * -- [more contents]
  * ---------------------------------------------------------
  */
-void
+void static
 writeBlock(std::ostream &stream, const char * block_type, const std::string & contents)
 {
 
@@ -221,7 +221,7 @@ writeBlock(std::ostream &stream, const char * block_type, const std::string & co
 }
 
 
-inline void
+void inline static
 stringAppend(std::string & target, std::string & fragment)
 {
     if (!target.empty()) {

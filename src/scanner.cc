@@ -10,7 +10,7 @@ using namespace PsqlChunks;
 /**
  * does not include linebreaks
  */
-inline bool
+bool inline static
 is_inline_whitespace( const char ch) {
     return (ch == '\t' || ch == ' ');
 }
@@ -20,7 +20,7 @@ is_inline_whitespace( const char ch) {
  * check if a stricg starts with another string
  * not unicode compatible
  */
-bool
+bool static
 starts_with(const std::string &haystack, const std::string& needle, size_t start_pos, bool ignore_case)
 {
     if ((haystack.size()-start_pos) < needle.size()) {
