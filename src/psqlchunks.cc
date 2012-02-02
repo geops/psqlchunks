@@ -133,7 +133,7 @@ print_help()
         "  -F           hide filenames from output\n"
         "\n"
         "SQL Handling:\n"
-        "  -c           commit SQL to the database. Default is performing a rollback\n"
+        "  -C           commit SQL to the database. Default is performing a rollback\n"
         "               after the SQL has been executed. A commit will only be\n"
         "               executed if no errors occured. (default: rollback)\n"
         "  -a           abort execution after first failed chunk. (default: continue)\n"
@@ -445,7 +445,7 @@ main(int argc, char * argv[] )
     };
 
     // read options
-    while ( (opt = getopt(argc, argv, "l:p:U:d:h:WcaF")) != -1) {
+    while ( (opt = getopt(argc, argv, "l:p:U:d:h:WCaF")) != -1) {
         switch (opt) {
             case 'p': /* port */
                 settings.db_port = optarg;
@@ -479,7 +479,7 @@ main(int argc, char * argv[] )
             case 'W':
                 settings.ask_pass = true;
                 break;
-            case 'c':
+            case 'C':
                 settings.commit_sql = true;
                 break;
             case 'a':
