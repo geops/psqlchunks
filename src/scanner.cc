@@ -151,7 +151,6 @@ ChunkScanner::nextChunk( Chunk &chunk )
     chunk.clear();
 
     if (stm_state == COPY_CACHED) {
-        // todo: use copy operator
         chunk = chunkCache;
         chunkCache.clear();
         stm_state = NEW_CHUNK;
