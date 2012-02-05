@@ -5,6 +5,8 @@
 #include "debug.h"
 #include "db.h"
 
+#define CANCEL_BUF_SIZE     256
+
 using namespace PsqlChunks;
 
 
@@ -222,3 +224,31 @@ Db::rollback()
     }
 }
 
+
+bool
+Db::cancel(std::string & errmsg)
+{
+    if (!isConnected()) {
+        log_debug("not connected - no query to cancel");
+        return true; // nothing to cancel
+    }
+
+    PGcancel * cncl;
+    cncl = PQgetCancel(conn);
+    if (cncl == NULL) {
+        log_error("could not get PGCancel pointer");
+        return false;
+    }
+    log_debug("Query successfuly canceled");
+
+    char cnclbuf[CANCEL_BUF_SIZE];
+    bool success = true;
+    if (PQcancel(cncl, &cnclbuf[0], CANCEL_BUF_SIZE) != 1) {
+        success = false;
+        log_debug("could not cancel running query: %s", cnclbuf);
+        errmsg.assign(cnclbuf);
+    }
+
+    PQfreeCancel(cncl);
+    return success;
+}

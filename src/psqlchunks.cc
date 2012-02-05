@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <cstring>
 #include <termios.h>
+#include <signal.h>
 
 #include "scanner.h"
 #include "db.h"
@@ -30,7 +31,7 @@ using namespace PsqlChunks;
 #define RC_E_USAGE      1
 #define RC_E_SQL        2
 #define RC_E_DB         3
-
+#define RC_E_OTHER      4
 
 // number of lines before and after the failing line
 // to print when outputing sql after an error
@@ -42,6 +43,9 @@ using namespace PsqlChunks;
 
 
 static const char * s_fail_sep = "-------------------------------------------------------";
+
+// allow signal handler to access db
+static Db * db_ptr = NULL;
 
 enum Command {
     CONCAT,
@@ -67,6 +71,7 @@ CommandRc cmd_concat(const Chunk & chunk);
 void cmd_run_print_diagnostics(Chunk & chunk);
 CommandRc cmd_run(Chunk & chunk, Db & db);
 CommandRc scan(ChunkScanner & scanner, Db & db);
+extern void handle_sigint(int sig);
 
 
 struct Settings {
@@ -114,6 +119,27 @@ quit(const char * message)
     exit(RC_E_USAGE);
 }
 
+extern void
+handle_sigint(int sig) {
+    log_debug("Caught signal %d", sig);
+    if (sig == SIGINT) {
+        int rc = RC_OK;
+        printf("\nReceived SIGINT\n");
+
+        if (db_ptr) {
+            std::string errmsg;
+
+            printf("%sCanceling running queries%s\n", ansi_code(ANSI_YELLOW),
+                    ansi_code(ANSI_RESET));
+            if (!db_ptr->cancel(errmsg)) {
+                printf("Canceling failed: %s\n", errmsg.c_str());
+                rc = RC_E_DB;
+            }
+            db_ptr->setCommit(false);
+        }
+        exit(rc);
+    }
+}
 
 void
 print_help()
@@ -383,6 +409,9 @@ handle_files(char * files[], int nufiles)
     int rc = RC_OK;
     Db db;
 
+    // allow signal handlers to access db
+    db_ptr = &db;
+
     try {
         // setup the database connection if the command
         // requires one
@@ -400,42 +429,44 @@ handle_files(char * files[], int nufiles)
                                         settings.db_port, settings.db_user, password);
             if (!connected) {
                 fprintf(stderr, "%s\n", db.getErrorMessage().c_str());
-                return RC_E_USAGE;
+                rc = RC_E_USAGE;
             }
 
             db.setCommit(settings.commit_sql);
         }
 
-        for( int i = 0; ((i < nufiles) && (crc == OK)); i++ ) {
-            if (strcmp(files[i], "-") == 0) {
-                // read from stdin
-                print_header("stdin");
-                ChunkScanner chunkscanner(std::cin);
-                crc = scan(chunkscanner, db);
-            }
-            else {
-                print_header(files[i]);
-
-                // open the file
-                std::ifstream is;
-                is.open(files[i]);
-
-                if (is.fail()) {
-                    fprintf(stderr, "Could not open file \"%s\".\n", files[i]);
-                    rc = RC_E_USAGE;
-                    break;
+        if (rc == RC_OK) {
+            for( int i = 0; ((i < nufiles) && (crc == OK)); i++ ) {
+                if (strcmp(files[i], "-") == 0) {
+                    // read from stdin
+                    print_header("stdin");
+                    ChunkScanner chunkscanner(std::cin);
+                    crc = scan(chunkscanner, db);
                 }
-                ChunkScanner chunkscanner(is);
-                crc = scan(chunkscanner, db);
+                else {
+                    print_header(files[i]);
+
+                    // open the file
+                    std::ifstream is;
+                    is.open(files[i]);
+
+                    if (is.fail()) {
+                        fprintf(stderr, "Could not open file \"%s\".\n", files[i]);
+                        rc = RC_E_USAGE;
+                        break;
+                    }
+                    ChunkScanner chunkscanner(is);
+                    crc = scan(chunkscanner, db);
+                }
             }
         }
     }
     catch (DbException &e) {
         printf("Fatal error: %s\n", e.what());
-        return RC_E_DB;
+        rc = RC_E_DB;
     }
 
-    //
+    // end message
     if ((rc == RC_OK) && (settings.command == RUN)) {
         if (db.getFailedCount() == 0) {
             printf("\nAll chunks passed.\n");
@@ -453,6 +484,7 @@ handle_files(char * files[], int nufiles)
         }
     }
 
+    db_ptr = NULL;
     return rc;
 }
 
@@ -460,7 +492,17 @@ handle_files(char * files[], int nufiles)
 int
 main(int argc, char * argv[] )
 {
-    char opt;
+
+    // register signal handler
+    struct sigaction sigint_act, o_sigint_act;
+    sigint_act.sa_handler = handle_sigint;
+    sigemptyset(&sigint_act.sa_mask);
+    sigint_act.sa_flags = 0;
+    if (sigaction(SIGINT, &sigint_act, &o_sigint_act) != 0) {
+        log_error("could not register sigint handler");
+        return RC_E_OTHER;
+    }
+
 
     // use is_terminal output if run in a shell
     if (isatty(fileno(stdout)) == 1) {
@@ -470,6 +512,7 @@ main(int argc, char * argv[] )
     };
 
     // read options
+    char opt;
     while ( (opt = getopt(argc, argv, "l:p:U:d:h:WCaF")) != -1) {
         switch (opt) {
             case 'p': /* port */

@@ -67,6 +67,7 @@ namespace PsqlChunks
 
             bool runChunk(Chunk & chunk);
             void finish();
+            bool cancel(std::string &);
     };
 };
 
