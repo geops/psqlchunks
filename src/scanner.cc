@@ -226,6 +226,10 @@ ChunkScanner::nextChunk( Chunk &chunk )
                     line_number++;
                     return true;
                 }
+                else {
+                    // purge all info from incomplete chunks
+                    chunk.clear();
+                }
             case CAPTURE_START_COMMENT:
                 chunk.appendStartComment( line.substr(content_pos, std::string::npos));
                 break;
