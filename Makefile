@@ -69,4 +69,4 @@ $(OBJECTS): $(HEADERS)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $*.o -c $*.cc
 
 cppcheck:
-	cppcheck --enable=all src
+	cppcheck -q --enable=all src
