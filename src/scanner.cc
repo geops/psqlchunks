@@ -17,7 +17,7 @@ is_inline_whitespace( const char ch) {
 
 
 /**
- * check if a stricg starts with another string
+ * check if a string starts with another string
  * not unicode compatible
  */
 bool static
@@ -156,8 +156,11 @@ ChunkScanner::nextChunk( Chunk &chunk )
         stm_state = NEW_CHUNK;
     }
 
+    std::string line;
+
     while (strm.good()) {
-        std::string line;
+
+        line.clear();
         getline(strm, line);
 
         size_t content_pos;
@@ -239,7 +242,7 @@ ChunkScanner::nextChunk( Chunk &chunk )
             case IGNORE:
                 break;
             case COPY_CACHED:
-                log_error("stm reached COPY_CACHED. this should never happen");
+                log_error("statemachine reached COPY_CACHED. this should never happen");
                 return false;
         }
 

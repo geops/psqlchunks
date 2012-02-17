@@ -20,7 +20,7 @@ namespace PsqlChunks
 
             enum Content {
                 SEP,        // seperator
-                FILE_MARKER,//
+                FILE_MARKER,// file marker from previous concat
                 COMMENT,    // sql single line comment
                 COMMENT_END,
                 COMMENT_START,
@@ -40,7 +40,7 @@ namespace PsqlChunks
             bool hasMarker(const std::string &, const std::string &, size_t , size_t &);
             Content classifyLine( std::string &, size_t &);
 
-            // state machine 
+            // state machine variables
             Content stm_last_cls;
             State stm_state;
             linenumber_t last_nonempty_line;
@@ -49,8 +49,6 @@ namespace PsqlChunks
         public:
             ChunkScanner(std::istream &);
             ~ChunkScanner();
-            //void scan( std::istream &);
-
 
             /** read next chunk
              *
@@ -59,8 +57,6 @@ namespace PsqlChunks
             bool nextChunk( Chunk& );
 
             bool eof();
-
-            //chunkvector_t chunks;
     };
 
 };

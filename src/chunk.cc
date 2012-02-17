@@ -50,8 +50,7 @@ Chunk::clear()
 
     // free the sql lines
     for (linevector_t::iterator lit = sql_lines.begin(); lit != sql_lines.end(); ++lit) {
-        Line * line = *lit;
-        delete line;
+        delete *lit;
     }
     sql_lines.clear();
 }

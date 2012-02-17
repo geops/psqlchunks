@@ -210,9 +210,11 @@ print_help()
 std::string
 read_password()
 {
-    // hide input
+    // get current terminal settings
     termios oldt;
     tcgetattr(STDIN_FILENO, &oldt);
+
+    // hide input
     termios newt = oldt;
     newt.c_lflag &= ~ECHO;
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
@@ -220,6 +222,8 @@ read_password()
     std::string s;
     std::getline(std::cin, s);
     std::cout << std::endl;
+
+    // restore terminal settings
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 
     return s;
@@ -370,7 +374,6 @@ print_header(const char * filename)
             break;
         default:
             break;
-
     }
 }
 
@@ -492,7 +495,6 @@ handle_files(char * files[], int nufiles)
 int
 main(int argc, char * argv[] )
 {
-
     // register signal handler
     struct sigaction sigint_act, o_sigint_act;
     sigint_act.sa_handler = handle_sigint;
@@ -502,7 +504,6 @@ main(int argc, char * argv[] )
         log_error("could not register sigint handler");
         return RC_E_OTHER;
     }
-
 
     // use is_terminal output if run in a shell
     if (isatty(fileno(stdout)) == 1) {
@@ -561,7 +562,6 @@ main(int argc, char * argv[] )
         }
     }
 
-
     // command
     if (optind >= argc) {
         quit("No command specified.");
@@ -582,7 +582,6 @@ main(int argc, char * argv[] )
     else {
         quit("Unknown command");
     }
-
 
     // check for input files
     int fileind = optind+1;
