@@ -152,6 +152,7 @@ print_help()
         "Usage :  \n"
         "psqlchunks command [options] files\n"
         "version: " STRINGIFY(VERSION_MAJOR) "." STRINGIFY(VERSION_MINOR) "."  STRINGIFY(VERSION_PATCH) "\n"
+        "\n"
         "use - as filename to read from stdin.\n"
         "Definition of a chunk of SQL:\n"
         "  A chunk of SQL is block of SQL statements to be executed together,\n"
