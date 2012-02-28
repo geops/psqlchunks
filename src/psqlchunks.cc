@@ -41,6 +41,10 @@ using namespace PsqlChunks;
 #define STRINGIFY2(x)   #x
 #define STRINGIFY(x)    STRINGIFY2(x)
 
+// version number
+#define VERSION_MAJOR 0
+#define VERSION_MINOR 5
+#define VERSION_PATCH 0
 
 static const char * s_fail_sep = "-------------------------------------------------------";
 
@@ -147,8 +151,8 @@ print_help()
     printf(
         "Usage :  \n"
         "psqlchunks command [options] files\n"
+        "version: " STRINGIFY(VERSION_MAJOR) "." STRINGIFY(VERSION_MINOR) "."  STRINGIFY(VERSION_PATCH) "\n"
         "use - as filename to read from stdin.\n"
-        "\n"
         "Definition of a chunk of SQL:\n"
         "  A chunk of SQL is block of SQL statements to be executed together,\n"
         "  and is delimited by the following markers:\n"
