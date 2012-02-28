@@ -28,6 +28,28 @@ Db::connect( const char * host, const char * db_name,  const char * port, const 
     return isConnected();
 }
 
+
+bool
+Db::setEncoding(const char * enc_name)
+{
+    if (enc_name == NULL) {
+        return false;
+    }
+
+    std::stringstream sqlstrm;
+    sqlstrm << "set client_encoding to " << enc_name << ";";
+    std::string sqlstr = sqlstrm.str();
+
+    try {
+        executeSql(sqlstr.c_str(), true);
+    }
+    catch (DbException &e) {
+        return false;
+    }
+
+    return true;
+}
+
 void
 Db::disconnect()
 {
@@ -155,7 +177,7 @@ Db::finish()
 
 
 void
-Db::executeSql(const char * sqlstr)
+Db::executeSql(const char * sqlstr, bool silent)
 {
     if (!isConnected()) {
         log_warn("can not run chunk - no db connection");
@@ -181,7 +203,9 @@ Db::executeSql(const char * sqlstr)
 
         PQclear(pgres);
 
-        log_error("%s", msg.c_str());
+        if (!silent) {
+            log_error("%s", msg.c_str());
+        }
         DbException e(msg);
         throw e;
     }

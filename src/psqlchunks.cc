@@ -44,7 +44,7 @@ using namespace PsqlChunks;
 // version number
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 5
-#define VERSION_PATCH 0
+#define VERSION_PATCH 1
 
 static const char * s_fail_sep = "-------------------------------------------------------";
 
@@ -90,6 +90,7 @@ struct Settings {
     bool is_terminal;
     unsigned int context_lines;
     bool print_filenames;
+    const char * client_encoding;
 };
 static Settings settings = {
     NULL,       /* db_port */
@@ -102,7 +103,8 @@ static Settings settings = {
     LIST,       /* command */
     false,      /* colored */
     DEFAULT_CONTEXT_LINES,   /* context_lines */
-    true        /* print_filenames */
+    true,       /* print_filenames */
+    NULL        /* client_encoding */
 };
 
 
@@ -195,6 +197,9 @@ print_help()
         "  -a           abort execution after first failed chunk. (default: continue)\n"
         "  -l           number of lines to output before and after failing lines\n"
         "               of SQL. (default: " STRINGIFY(DEFAULT_CONTEXT_LINES) ")\n"
+        "  -E           set the client_encoding of the database connection. This\n"
+        "               setting is usefull when the encoding of sql file differs\n"
+        "               from the default client_encoding of the database server.\n"
         "\n"
         "Connection parameters:\n"
         "  -d [database name]\n"
@@ -439,6 +444,15 @@ handle_files(char * files[], int nufiles)
                 fprintf(stderr, "%s\n", db.getErrorMessage().c_str());
                 rc = RC_E_USAGE;
             }
+            else {
+                if (settings.client_encoding != NULL) {
+                    if (!db.setEncoding(settings.client_encoding)) {
+                        fprintf(stderr, "Could not set encoding to %s.\nPostgresql message: %s\n", settings.client_encoding,
+                                    db.getErrorMessage().c_str());
+                        rc = RC_E_USAGE;
+                    }
+                }
+            }
 
             db.setCommit(settings.commit_sql);
         }
@@ -519,7 +533,7 @@ main(int argc, char * argv[] )
 
     // read options
     char opt;
-    while ( (opt = getopt(argc, argv, "l:p:U:d:h:WCaF")) != -1) {
+    while ( (opt = getopt(argc, argv, "l:p:U:d:h:WCaFE:")) != -1) {
         switch (opt) {
             case 'p': /* port */
                 settings.db_port = optarg;
@@ -561,6 +575,9 @@ main(int argc, char * argv[] )
                 break;
             case 'F':
                 settings.print_filenames = false;
+                break;
+            case 'E': /* client_encoding */
+                settings.client_encoding = optarg;
                 break;
             default:
                 quit("Unknown option.");

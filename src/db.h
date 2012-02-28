@@ -37,7 +37,11 @@ namespace PsqlChunks
             void commit();
             void rollback();
             void begin();
-            void executeSql(const char *);
+
+            /**
+             * silent: do not log on error
+             */
+            void executeSql(const char *, bool silent = false);
 
 
 
@@ -64,6 +68,8 @@ namespace PsqlChunks
             {
                 return failed_count;
             }
+
+            bool setEncoding(const char * enc_name);
 
             bool runChunk(Chunk & chunk);
             void finish();
