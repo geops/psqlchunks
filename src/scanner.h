@@ -33,6 +33,7 @@ namespace PsqlChunks
                 CAPTURE_START_COMMENT,
                 CAPTURE_END_COMMENT,
                 NEW_CHUNK,
+                END_CHUNK,
                 IGNORE,
                 COPY_CACHED
             };

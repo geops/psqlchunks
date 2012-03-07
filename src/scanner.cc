@@ -167,16 +167,26 @@ ChunkScanner::nextChunk( Chunk &chunk )
         Content cls = classifyLine(line, content_pos);
         switch (cls) {
             case OTHER:
-                stm_state = CAPTURE_SQL;
+                if (stm_state == CAPTURE_END_COMMENT) {
+                    stm_state = END_CHUNK;
+                }
+                else {
+                    stm_state = CAPTURE_SQL;
+                }
                 break;
             case FILE_MARKER:
-                stm_state = IGNORE;
-                break;
+            case EMPTY: // empty lines are always ignored. may be re-added later
             case SEP:
-                stm_state = IGNORE;
+                if (stm_state == CAPTURE_END_COMMENT) {
+                    stm_state = END_CHUNK;
+                }
+                else {
+                    stm_state = IGNORE;
+                }
                 break;
             case COMMENT:
-                if ((stm_state != CAPTURE_END_COMMENT) && (stm_state != CAPTURE_START_COMMENT) 
+                if ( (stm_state != CAPTURE_END_COMMENT)
+                        && (stm_state != CAPTURE_START_COMMENT)
                         && (stm_state != NEW_CHUNK)) {
                     stm_state = CAPTURE_SQL;
                 }
@@ -203,10 +213,6 @@ ChunkScanner::nextChunk( Chunk &chunk )
                     stm_state = CAPTURE_SQL;
                 }
                 break;
-            case EMPTY:
-                // remove leading empty lines
-                stm_state = IGNORE;
-                break;
         }
 
         switch (stm_state) {
@@ -220,6 +226,17 @@ ChunkScanner::nextChunk( Chunk &chunk )
                 }
                 // append the sql and set the min max line numbers
                 chunk.appendSqlLine(line, line_number);
+                break;
+            case END_CHUNK:
+                if (chunk.hasSql()) {
+                    stm_state = COPY_CACHED;
+                    chunkCache.clear();
+                    if (cls == OTHER) {
+                        chunkCache.appendSqlLine(line, line_number);
+                    }
+                    line_number++;
+                    return true;
+                }
                 break;
             case NEW_CHUNK:
                 if (chunk.hasSql()) {
