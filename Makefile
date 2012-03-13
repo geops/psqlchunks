@@ -21,16 +21,16 @@ CFLAGS=-Wall -Wextra \
 	-D_XOPEN_SOURCE=600 $(DEBUG)
 ifeq ($(strip $(DEBUG)), )
 	# production build
-	CFLAGS+=-O2
-   ifeq ($(CXX), g++)
-      CFLAGS+=-s
-   endif
+	CFLAGS+=-O2 -DNDEBUG
+	ifeq ($(CXX), g++)
+		CFLAGS+=-s
+	endif
 else
 	# debug build - add debug info to the binaries
 	CFLAGS+=-g -O0
-   ifeq ($(CXX), g++)
-      CFLAGS+=-Weffc++
-   endif
+	ifeq ($(CXX), g++)
+		CFLAGS+=-Weffc++
+	endif
 endif
 
 CXXFLAGS=$(CFLAGS) $(PQ_FLAGS)
