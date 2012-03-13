@@ -36,14 +36,7 @@ Db::setEncoding(const char * enc_name)
         return false;
     }
 
-    std::stringstream sqlstrm;
-    sqlstrm << "set client_encoding to " << enc_name << ";";
-    std::string sqlstr = sqlstrm.str();
-
-    try {
-        executeSql(sqlstr.c_str(), true);
-    }
-    catch (DbException &e) {
+    if (PQsetClientEncoding(conn, enc_name) != 0) {
         return false;
     }
 

@@ -447,8 +447,7 @@ handle_files(char * files[], int nufiles)
             else {
                 if (settings.client_encoding != NULL) {
                     if (!db.setEncoding(settings.client_encoding)) {
-                        fprintf(stderr, "Could not set encoding to %s.\nPostgresql message: %s\n", settings.client_encoding,
-                                    db.getErrorMessage().c_str());
+                        fprintf(stderr, "Could not set encoding to %s.\n", settings.client_encoding);
                         rc = RC_E_USAGE;
                     }
                 }
