@@ -198,7 +198,7 @@ print_help()
         "  -l           number of lines to output before and after failing lines\n"
         "               of SQL. (default: " STRINGIFY(DEFAULT_CONTEXT_LINES) ")\n"
         "  -E           set the client_encoding of the database connection. This\n"
-        "               setting is usefull when the encoding of sql file differs\n"
+        "               setting is useful when the encoding of sql file differs\n"
         "               from the default client_encoding of the database server.\n"
         "\n"
         "Connection parameters:\n"
