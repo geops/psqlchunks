@@ -70,7 +70,7 @@ Result:
       -l           number of lines to output before and after failing lines
                    of SQL. (default: 2)
       -E           set the client_encoding of the database connection. This
-                   setting is usefull when the encoding of sql file differs
+                   setting is useful when the encoding of sql file differs
                    from the default client_encoding of the database server.
 
     Connection parameters:
