@@ -374,7 +374,7 @@ void
 print_header(const char * filename)
 {
     if (settings.print_filenames) {
-        printf("\n----# File: %s%s%s\n", ansi_code(ANSI_BLUE), filename,
+        printf("\n----[ File: %s%s%s\n", ansi_code(ANSI_BLUE), filename,
                 ansi_code(ANSI_RESET));
     }
 

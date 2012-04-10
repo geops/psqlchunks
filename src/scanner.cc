@@ -108,7 +108,7 @@ ChunkScanner::classifyLine( std::string & line, size_t & content_pos)
             if (dash_counter == 2) {
                 cls = COMMENT;
             }
-            else if ((dash_counter >= 4) and (line[c] == '#')) {
+            else if ((dash_counter >= 4) and (line[c] == '[')) {
                 // File marker from previous concat
                 cls = FILE_MARKER;
                 content_pos = c;
