@@ -7,6 +7,9 @@
 
 using namespace PsqlChunks;
 
+// byte order matk for utf8 strings
+static const char * bom_utf8 = "\xef\xbb\xbf";
+
 /**
  * does not include linebreaks
  */
@@ -157,11 +160,20 @@ ChunkScanner::nextChunk( Chunk &chunk )
     }
 
     std::string line;
+    bool is_first_line = true;
 
     while (strm.good()) {
 
         line.clear();
         getline(strm, line);
+
+        // strip the Byte Order Mark
+        if (is_first_line) {
+            if (!line.substr(0, strlen(bom_utf8)).compare(bom_utf8)) {
+                line = line.substr( strlen(bom_utf8));
+            }
+            is_first_line = false;
+        }
 
         size_t content_pos;
         Content cls = classifyLine(line, content_pos);
