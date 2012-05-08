@@ -4,6 +4,7 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <iterator>
 
 #include "chunk.h"
 
@@ -60,8 +61,59 @@ namespace PsqlChunks
             bool eof();
     };
 
+
+    /**
+     *
+     * Usage:
+     * for (ChunkIterator cit(is); cit != ChunkIterator(); ++cit) {
+     *     std::cout << *cit << std::endl;
+     * }
+     */
+    class ChunkIterator
+        : public std::iterator<std::input_iterator_tag, Chunk>
+    {
+        private:
+            ChunkScanner * scanner;
+            Chunk chunk;
+
+            inline void fetchChunk()
+            {
+                if (scanner && !scanner->nextChunk(chunk)) {
+                    delete scanner;
+                    scanner = NULL;
+                }
+            }
+
+        public:
+            ChunkIterator(std::istream& is) : scanner(NULL)
+            {
+                scanner = new ChunkScanner(is);
+                fetchChunk();
+            };
+
+            ChunkIterator() : scanner(NULL) {};
+
+            ~ChunkIterator() { delete scanner; };
+
+            Chunk& operator*() { return chunk; }
+
+            ChunkIterator& operator++()
+            {
+                fetchChunk();
+                return *this;
+            }
+
+            bool operator==(const ChunkIterator& rhs) const
+            {
+                return (!rhs.scanner) == (!scanner);
+            }
+
+            bool operator!=(const ChunkIterator& rhs) const
+            {
+                return !(rhs == *this);
+            }
+    };
+
 };
-
-
 
 #endif
