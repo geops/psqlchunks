@@ -356,7 +356,11 @@ cmd_run(Chunk & chunk, Db & db)
     else {
         printf("%sFAIL%s", ansi_code(ANSI_RED), ansi_code(ANSI_RESET));
     }
-    printf("  [%d-%d] %s\n", chunk.start_line, chunk.end_line, chunk.getDescription().c_str());
+    printf("  [%d-%d] [%ld.%06lds] %s\n", chunk.start_line,
+                chunk.end_line,
+                chunk.diagnostics.runtime.tv_sec,
+                chunk.diagnostics.runtime.tv_usec,
+                chunk.getDescription().c_str());
 
     if (!run_ok) {
         cmd_run_print_diagnostics(chunk);

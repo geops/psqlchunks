@@ -6,6 +6,8 @@
 #include <iostream>
 #include <stdint.h>
 
+#include <sys/time.h>
+
 #define LINE_NUMBER_NOT_AVAILABLE   0
 
 namespace PsqlChunks
@@ -33,6 +35,9 @@ namespace PsqlChunks
 
             enum CommandStatus {Ok, Fail};
 
+            /** runtime of the query */
+            struct timeval runtime;
+
             linenumber_t error_line;
             CommandStatus status;
             std::string sqlstate;
@@ -40,8 +45,12 @@ namespace PsqlChunks
             std::string msg_detail;
             std::string msg_hint;
 
-            Diagnostics() : error_line(1), status(Ok), sqlstate(""), msg_primary(""),
-                    msg_detail(""), msg_hint("") {};
+            Diagnostics() : error_line(1), status(Ok), sqlstate(""),
+                    msg_primary(""), msg_detail(""), msg_hint("")
+            {
+                runtime.tv_sec = 0;
+                runtime.tv_usec = 0;
+            };
     };
 
 

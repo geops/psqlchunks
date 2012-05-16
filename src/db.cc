@@ -2,12 +2,38 @@
 #include <algorithm>
 #include <sstream>
 
+#include <ctime>
+#include <cstring>
+#include <cerrno>
+
 #include "debug.h"
 #include "db.h"
 
 #define CANCEL_BUF_SIZE     256
 
 using namespace PsqlChunks;
+
+
+bool
+timeval_subtract (struct timeval &result, struct timeval & x, struct timeval &y)
+{
+    if (x.tv_usec < y.tv_usec) {
+        int nsec = (y.tv_usec - x.tv_usec) / 1000000 + 1;
+        y.tv_usec -= 1000000 * nsec;
+        y.tv_sec += nsec;
+    }
+    if (x.tv_usec - y.tv_usec > 1000000) {
+        int nsec = (x.tv_usec - y.tv_usec) / 1000000;
+        y.tv_usec += 1000000 * nsec;
+        y.tv_sec -= nsec;
+    }
+
+    result.tv_sec = x.tv_sec - y.tv_sec;
+    result.tv_usec = x.tv_usec - y.tv_usec;
+
+    return x.tv_sec < y.tv_sec;
+}
+
 
 
 Db::Db()
@@ -88,6 +114,13 @@ Db::runChunk(Chunk & chunk)
 
     std::string sql = chunk.getSql();
 
+    // start time
+    struct timeval start_time;
+    if (gettimeofday(&start_time, NULL)!=0) {
+        DbException e(strerror(errno));
+        throw e;
+    }
+
     executeSql("savepoint chunk;");
 
     PGresult * pgres = PQexec(conn, sql.c_str());
@@ -96,6 +129,15 @@ Db::runChunk(Chunk & chunk)
         DbException e("PQExec failed");
         throw e;
     }
+
+    // end time
+    struct timeval end_time;
+    if (gettimeofday(&end_time, NULL)!=0) {
+        DbException e(strerror(errno));
+        throw e;
+    }
+    timeval_subtract(chunk.diagnostics.runtime, end_time, start_time);
+
 
     if ((PQresultStatus(pgres) == PGRES_FATAL_ERROR) ||
         (PQresultStatus(pgres) == PGRES_NONFATAL_ERROR)) {
@@ -106,7 +148,7 @@ Db::runChunk(Chunk & chunk)
         if (statement_position) {
             int pos = atoi(statement_position);
             if ((sql.begin()+pos) < sql.end()) {
-                chunk.diagnostics.error_line = chunk.start_line 
+                chunk.diagnostics.error_line = chunk.start_line
                                 + std::count(sql.begin(), sql.begin()+pos, '\n');
             }
             else {
