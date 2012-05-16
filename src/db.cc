@@ -101,15 +101,12 @@ Db::runChunk(Chunk & chunk)
         (PQresultStatus(pgres) == PGRES_NONFATAL_ERROR)) {
         success = false;
 
-        // collect diagonstics
-        chunk.diagnostics = new Diagnostics();
-
         // error line and position in that line
         char * statement_position = PQresultErrorField(pgres, PG_DIAG_STATEMENT_POSITION);
         if (statement_position) {
             int pos = atoi(statement_position);
             if ((sql.begin()+pos) < sql.end()) {
-                chunk.diagnostics->error_line = chunk.start_line 
+                chunk.diagnostics.error_line = chunk.start_line 
                                 + std::count(sql.begin(), sql.begin()+pos, '\n');
             }
             else {
@@ -118,27 +115,27 @@ Db::runChunk(Chunk & chunk)
         }
         else {
             log_debug("got an empty PG_DIAG_STATEMENT_POSITION");
-            chunk.diagnostics->error_line = LINE_NUMBER_NOT_AVAILABLE;
+            chunk.diagnostics.error_line = LINE_NUMBER_NOT_AVAILABLE;
         }
 
         char * sqlstate = PQresultErrorField(pgres, PG_DIAG_SQLSTATE);
         if (sqlstate) {
-            chunk.diagnostics->sqlstate.assign(sqlstate);
+            chunk.diagnostics.sqlstate.assign(sqlstate);
         }
 
         char * msg_primary = PQresultErrorField(pgres, PG_DIAG_MESSAGE_PRIMARY);
         if (msg_primary) {
-            chunk.diagnostics->msg_primary.assign(msg_primary);
+            chunk.diagnostics.msg_primary.assign(msg_primary);
         }
 
         char * msg_detail = PQresultErrorField(pgres, PG_DIAG_MESSAGE_DETAIL);
         if (msg_detail) {
-            chunk.diagnostics->msg_detail.assign(msg_detail);
+            chunk.diagnostics.msg_detail.assign(msg_detail);
         }
 
         char * msg_hint = PQresultErrorField(pgres, PG_DIAG_MESSAGE_HINT);
         if (msg_hint) {
-            chunk.diagnostics->msg_hint.assign(msg_hint);
+            chunk.diagnostics.msg_hint.assign(msg_hint);
         }
     }
 

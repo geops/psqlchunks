@@ -40,7 +40,7 @@ namespace PsqlChunks
             std::string msg_detail;
             std::string msg_hint;
 
-            Diagnostics() : error_line(0), status(Ok), sqlstate(""), msg_primary(""),
+            Diagnostics() : error_line(1), status(Ok), sqlstate(""), msg_primary(""),
                     msg_detail(""), msg_hint("") {};
     };
 
@@ -65,7 +65,7 @@ namespace PsqlChunks
             /** the line number the contents of the chunk ended */
             linenumber_t end_line;
 
-            Diagnostics * diagnostics;
+            Diagnostics diagnostics;
 
             Chunk();
             ~Chunk();
@@ -87,9 +87,9 @@ namespace PsqlChunks
                 return sql_lines;
             }
 
-            bool hasDiagnostics()
+            bool failed()
             {
-                return diagnostics != NULL;
+                return diagnostics.status != Diagnostics::Ok;
             }
 
             /** get a description for the chunk. single line */

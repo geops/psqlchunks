@@ -32,8 +32,7 @@ Line::Line(std::string _contents, linenumber_t _number)
 // ### Chunk ############################################
 
 Chunk::Chunk()
-    : sql_lines(), start_comment(""), end_comment(""), start_line(0), end_line(0),
-      diagnostics(0)
+    : sql_lines(), start_comment(""), end_comment(""), start_line(0), end_line(0)
 {
 }
 
@@ -44,9 +43,6 @@ Chunk::clear()
     end_comment.clear();
     start_line = 0;
     end_line = 0;
-
-    delete diagnostics;
-    diagnostics = NULL;
 
     // free the sql lines
     for (linevector_t::iterator lit = sql_lines.begin(); lit != sql_lines.end(); ++lit) {
@@ -86,9 +82,7 @@ Chunk::operator=(const Chunk &other) {
         }
     }
     
-    if (other.diagnostics) {
-        diagnostics = new Diagnostics(*other.diagnostics);
-    }
+    diagnostics = other.diagnostics;
 
     return *this;
 }
