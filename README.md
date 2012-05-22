@@ -22,16 +22,15 @@ the program prints when called with
 
 Result:
 
-
     Usage :  
     psqlchunks command [options] files
-    version: 0.5.1
+    version: 0.5.2
+
     use - as filename to read from stdin.
-    
     Definition of a chunk of SQL:
       A chunk of SQL is block of SQL statements to be executed together,
       and is delimited by the following markers:
-    
+
       -------------------------------------------------------------
       -- start: creating my table
       -------------------------------------------------------------
@@ -39,17 +38,18 @@ Result:
       -------------------------------------------------------------
       -- end: creating my table
       -------------------------------------------------------------
-    
-      The end marker is optional and may be omited.
+
+      The end marker is optional and may be ommited.
       The shortest marker syntac understood by this tool is:
-    
+
       ----
       -- start: creating my table
       create table mytable (myint integer, mytext text);
-    
-    
+
+
     Commands:
-      concat       concat all SQL files and write the formatted output to stdout
+      print        print all SQL files and write the formatted output to stdout.
+                   This command as the following aliasses: echo, concat.
       help         display this help text
       list         list chunks
       run          run SQL chunks in the database
@@ -58,10 +58,10 @@ Result:
                    COMMIT statements from the SQL files. Should there be any
                    in the files, the SQL WILL BE COMMITED and this tool will
                    terminate.
-    
+
     General:
       -F           hide filenames from output
-    
+
     SQL Handling:
       -C           commit SQL to the database. Default is performing a rollback
                    after the SQL has been executed. A commit will only be
@@ -78,7 +78,7 @@ Result:
       -U [user]
       -W           ask for password (default: don't ask)
       -h [host/socket name]
-    
+
     Return codes:
       0            no errors
       1            invalid usage of this program
@@ -97,3 +97,4 @@ ToDo
 ----
 
 - capture notices/warnings and print them without messing up the existing output
+

@@ -52,7 +52,7 @@ static const char * s_fail_sep = "----------------------------------------------
 static Db * db_ptr = NULL;
 
 enum Command {
-    CONCAT,
+    PRINT,
     LIST,
     RUN
 };
@@ -70,7 +70,7 @@ const char * ansi_code(const char * color);
 std::string read_password();
 int handle_files(char * files[], int nufiles);
 CommandRc cmd_list(Chunk & chunk);
-CommandRc cmd_concat(const Chunk & chunk);
+CommandRc cmd_print(const Chunk & chunk);
 void cmd_run_print_diagnostics(Chunk & chunk);
 CommandRc cmd_run(Chunk & chunk, Db & db);
 CommandRc scan(ChunkScanner & scanner, Db & db);
@@ -176,7 +176,8 @@ print_help()
         "\n"
         "\n"
         "Commands:\n"
-        "  concat       concat all SQL files and write the formatted output to stdout\n"
+        "  print        print all SQL files and write the formatted output to stdout.\n"
+        "               This command as the following aliasses: echo, concat.\n"
         "  help         display this help text\n"
         "  list         list chunks\n"
         "  run          run SQL chunks in the database\n"
@@ -250,7 +251,7 @@ cmd_list(Chunk & chunk)
 
 
 inline CommandRc
-cmd_concat(const Chunk & chunk)
+cmd_print(const Chunk & chunk)
 {
     std::cout << chunk << std::endl;
     return OK;
@@ -382,8 +383,8 @@ scan(ChunkScanner & scanner, Db & db)
 
     while (scanner.nextChunk(chunk)) {
         switch (settings.command) {
-            case CONCAT:
-                crc = cmd_concat(chunk);
+            case PRINT:
+                crc = cmd_print(chunk);
                 break;
             case LIST:
                 crc = cmd_list(chunk);
@@ -573,8 +574,14 @@ main(int argc, char * argv[] )
     if (optind >= argc) {
         quit("No command specified.");
     }
-    if (strcmp(*(argv+optind), "concat") == 0) {
-        settings.command = CONCAT;
+    if (strcmp(*(argv+optind), "print") == 0) {
+        settings.command = PRINT;
+    }
+    else if (strcmp(*(argv+optind), "echo") == 0) {
+        settings.command = PRINT;
+    }
+    else if (strcmp(*(argv+optind), "concat") == 0) {
+        settings.command = PRINT;
     }
     else if (strcmp(*(argv+optind), "list") == 0) {
         settings.command = LIST;
