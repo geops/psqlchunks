@@ -69,7 +69,6 @@ void print_help();
 const char * ansi_code(const char * color);
 std::string read_password();
 int handle_files(char * files[], int nufiles);
-void cmd_list_printheader();
 CommandRc cmd_list(Chunk & chunk);
 CommandRc cmd_concat(const Chunk & chunk);
 void cmd_run_print_diagnostics(Chunk & chunk);
@@ -242,15 +241,6 @@ read_password()
 
 /****** COMMAND Functions *****/
 
-inline void
-cmd_list_printheader()
-{
-    printf("%s start  |  end   | contents%s\n",
-            ansi_code(ANSI_BOLD),
-            ansi_code(ANSI_RESET));
-
-}
-
 inline CommandRc
 cmd_list(Chunk & chunk)
 {
@@ -380,14 +370,6 @@ print_header(const char * filename)
     if (settings.print_filenames) {
         printf("\n----[ File: %s%s%s\n", ansi_code(ANSI_BLUE), filename,
                 ansi_code(ANSI_RESET));
-    }
-
-    switch (settings.command) {
-        case LIST:
-            cmd_list_printheader();
-            break;
-        default:
-            break;
     }
 }
 
