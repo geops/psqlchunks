@@ -111,6 +111,7 @@ Db::runChunk(Chunk & chunk)
     begin();
 
     std::string sql = chunk.getSql();
+    chunk.diagnostics.status = Diagnostics::Ok;
 
     // start time
     struct timeval start_time;
