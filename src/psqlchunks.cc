@@ -11,6 +11,7 @@
 
 #include "scanner.h"
 #include "db.h"
+#include "filter.h"
 #include "debug.h"
 
 using namespace std;
@@ -43,13 +44,10 @@ using namespace PsqlChunks;
 
 // version number
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 5
-#define VERSION_PATCH 2
+#define VERSION_MINOR 6
+#define VERSION_PATCH 0
 
 static const char * s_fail_sep = "-------------------------------------------------------";
-
-// allow signal handler to access db
-static Db * db_ptr = NULL;
 
 enum Command {
     PRINT,
@@ -63,55 +61,72 @@ enum CommandRc {
 };
 
 
+struct Settings {
+    public:
+        const char * db_port;
+        const char * db_user;
+        const char * db_name;
+        const char * db_host;
+        bool ask_pass;
+        bool commit_sql;
+        bool abort_after_failed;
+        Command command;
+        bool is_terminal;
+        unsigned int context_lines;
+        bool print_filenames;
+        const char * client_encoding;
+
+        FilterChain filterchain;
+
+        Settings() :
+            db_port(0),
+            db_user(0),
+            db_name(0),
+            db_host(0),
+            ask_pass(false),
+            commit_sql(false),
+            abort_after_failed(false),
+            command(LIST),
+            is_terminal(false),
+            context_lines(DEFAULT_CONTEXT_LINES),
+            print_filenames(true),
+            client_encoding(0),
+            filterchain()
+        {};
+
+    private:
+        Settings(const Settings&);
+        Settings& operator=(const Settings&);
+
+
+};
+
+// allow signal handler to access db
+static Db * db_ptr = NULL;
+static Settings * settings_ptr = NULL;
+
+
 /* prototypes */
 void quit(const char * message);
 void print_help();
 const char * ansi_code(const char * color);
 std::string read_password();
-int handle_files(char * files[], int nufiles);
+int handle_files(Settings & settings, char * files[], int nufiles);
 CommandRc cmd_list(Chunk & chunk);
 CommandRc cmd_print(const Chunk & chunk);
-void cmd_run_print_diagnostics(Chunk & chunk);
+void cmd_run_print_diagnostics(Settings & settings, Chunk & chunk);
 CommandRc cmd_run(Chunk & chunk, Db & db);
-CommandRc scan(ChunkScanner & scanner, Db & db);
+CommandRc scan(Settings & settings, ChunkScanner & scanner, Db & db);
 extern void handle_sigint(int sig);
-
-
-struct Settings {
-    const char * db_port;
-    const char * db_user;
-    const char * db_name;
-    const char * db_host;
-    bool ask_pass;
-    bool commit_sql;
-    bool abort_after_failed;
-    Command command;
-    bool is_terminal;
-    unsigned int context_lines;
-    bool print_filenames;
-    const char * client_encoding;
-};
-static Settings settings = {
-    NULL,       /* db_port */
-    NULL,       /* db_user */
-    NULL,       /* db_name */
-    NULL,       /* db_host */
-    false,      /* ask_pass */
-    false,      /* commit_sql */
-    false,      /* abort_after_failed */
-    LIST,       /* command */
-    false,      /* colored */
-    DEFAULT_CONTEXT_LINES,   /* context_lines */
-    true,       /* print_filenames */
-    NULL        /* client_encoding */
-};
 
 
 const char *
 ansi_code(const char * color)
 {
-    if (settings.is_terminal) {
-        return color;
+    if (settings_ptr) {
+        if (settings_ptr->is_terminal) {
+            return color;
+        }
     }
     return ANSI_NONE;
 }
@@ -190,6 +205,15 @@ print_help()
         "General:\n"
         "  -F           hide filenames from output\n"
         "\n"
+        "Filters:\n"
+        "  -L [lines]   use only chunks which span the given lines.\n"
+        "               lines is a commaseperated list of line numbers. Example:\n"
+        "               1,78,345\n"
+        "  -I [regex]   match description comments with a regular expression.\n"
+        "               (POSIX extended regular expression, case insensitive)\n"
+        "  -S [regex]   SQL has to match this POSIX extended regular expression,\n"
+        "               also case insensitive.\n"
+        "\n"
         "SQL Handling:\n"
         "  -C           commit SQL to the database. Default is performing a rollback\n"
         "               after the SQL has been executed. A commit will only be\n"
@@ -259,7 +283,7 @@ cmd_print(const Chunk & chunk)
 
 
 inline void
-cmd_run_print_diagnostics(Chunk & chunk) {
+cmd_run_print_diagnostics(Settings & settings, Chunk & chunk) {
     if (chunk.failed()) {
         printf( "%s\n"
                 "%s> description : %s\n"
@@ -298,7 +322,7 @@ cmd_run_print_diagnostics(Chunk & chunk) {
             if (settings.context_lines < (chunk.end_line - chunk.diagnostics.error_line)) {
                 out_end = chunk.diagnostics.error_line + settings.context_lines;
             }
-            log_debug("out_start: %u, out_end: %u", out_start, out_end);
+            log_debug("out_start: %lu, out_end: %lu", out_start, out_end);
 
             // output sql
             linevector_t sql_lines = chunk.getSqlLines();
@@ -330,7 +354,7 @@ cmd_run_print_diagnostics(Chunk & chunk) {
 }
 
 inline CommandRc
-cmd_run(Chunk & chunk, Db & db)
+cmd_run(Settings & settings, Chunk & chunk, Db & db)
 {
     if (settings.is_terminal) {
         printf("RUN   [%d-%d] %s", chunk.start_line, chunk.end_line, chunk.getDescription().c_str());
@@ -354,7 +378,7 @@ cmd_run(Chunk & chunk, Db & db)
                 chunk.getDescription().c_str());
 
     if (!run_ok) {
-        cmd_run_print_diagnostics(chunk);
+        cmd_run_print_diagnostics(settings, chunk);
         if (settings.abort_after_failed) {
             printf("Chunk failed. Aborting.\n");
             return BREAK;
@@ -366,7 +390,7 @@ cmd_run(Chunk & chunk, Db & db)
 
 
 void
-print_header(const char * filename)
+print_header(Settings & settings, const char * filename)
 {
     if (settings.print_filenames) {
         printf("\n----[ File: %s%s%s\n", ansi_code(ANSI_BLUE), filename,
@@ -376,12 +400,18 @@ print_header(const char * filename)
 
 
 CommandRc
-scan(ChunkScanner & scanner, Db & db)
+scan(Settings & settings, ChunkScanner & scanner, Db & db)
 {
     Chunk chunk;
     CommandRc crc = OK;
 
     while (scanner.nextChunk(chunk)) {
+
+        // skip non-matching chunks
+        if (!settings.filterchain.match(chunk)) {
+            continue;
+        }
+
         switch (settings.command) {
             case PRINT:
                 crc = cmd_print(chunk);
@@ -390,7 +420,7 @@ scan(ChunkScanner & scanner, Db & db)
                 crc = cmd_list(chunk);
                 break;
             case RUN:
-                crc = cmd_run(chunk, db);
+                crc = cmd_run(settings, chunk, db);
                 break;
         }
 
@@ -403,7 +433,7 @@ scan(ChunkScanner & scanner, Db & db)
 
 
 int
-handle_files(char * files[], int nufiles)
+handle_files(Settings &settings, char * files[], int nufiles)
 {
     CommandRc crc = OK;
     int rc = RC_OK;
@@ -447,12 +477,12 @@ handle_files(char * files[], int nufiles)
             for( int i = 0; ((i < nufiles) && (crc == OK)); i++ ) {
                 if (strcmp(files[i], "-") == 0) {
                     // read from stdin
-                    print_header("stdin");
+                    print_header(settings, "stdin");
                     ChunkScanner chunkscanner(std::cin);
-                    crc = scan(chunkscanner, db);
+                    crc = scan(settings, chunkscanner, db);
                 }
                 else {
-                    print_header(files[i]);
+                    print_header(settings, files[i]);
 
                     // open the file
                     std::ifstream is;
@@ -464,7 +494,7 @@ handle_files(char * files[], int nufiles)
                         break;
                     }
                     ChunkScanner chunkscanner(is);
-                    crc = scan(chunkscanner, db);
+                    crc = scan(settings, chunkscanner, db);
                 }
             }
         }
@@ -497,9 +527,26 @@ handle_files(char * files[], int nufiles)
 }
 
 
+template <class T>
+void
+add_filter(FilterChain &filterchain, const char * params)
+{
+    T * filter = new T();
+    std::string errmsg;
+    if (!filter->setParams(params, errmsg)) {
+        delete filter;
+        quit(errmsg.c_str());
+    }
+    filterchain.addFilter(filter);
+}
+
+
 int
 main(int argc, char * argv[] )
 {
+    Settings settings;
+    settings_ptr = &settings;
+
     // register signal handler
     struct sigaction sigint_act, o_sigint_act;
     sigint_act.sa_handler = handle_sigint;
@@ -514,12 +561,12 @@ main(int argc, char * argv[] )
     if (isatty(fileno(stdout)) == 1) {
         settings.is_terminal = true;
         // disable output buffering
-        setvbuf (stdout, NULL, _IONBF, BUFSIZ);
+        setvbuf(stdout, NULL, _IONBF, BUFSIZ);
     };
 
     // read options
     char opt;
-    while ( (opt = getopt(argc, argv, "l:p:U:d:h:WCaFE:")) != -1) {
+    while ( (opt = getopt(argc, argv, "l:p:U:d:h:WCaFE:L:S:I:")) != -1) {
         switch (opt) {
             case 'p': /* port */
                 settings.db_port = optarg;
@@ -565,6 +612,15 @@ main(int argc, char * argv[] )
             case 'E': /* client_encoding */
                 settings.client_encoding = optarg;
                 break;
+            case 'L': /* line filter */
+                add_filter<LineFilter>(settings.filterchain, optarg);
+                break;
+            case 'I': /* description regex filter */
+                add_filter<DescriptionRegexFilter>(settings.filterchain, optarg);
+                break;
+            case 'S': /* sql regex filter */
+                add_filter<ContentRegexFilter>(settings.filterchain, optarg);
+                break;
             default:
                 quit("Unknown option.");
         }
@@ -603,5 +659,5 @@ main(int argc, char * argv[] )
         quit("No input file(s) given.");
     }
 
-    return handle_files(argv+fileind, argc-fileind);
+    return handle_files(settings, argv+fileind, argc-fileind);
 }

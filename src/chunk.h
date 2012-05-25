@@ -45,7 +45,7 @@ namespace PsqlChunks
             std::string msg_detail;
             std::string msg_hint;
 
-            Diagnostics() : error_line(1), status(Ok), sqlstate(""),
+            Diagnostics() : runtime(), error_line(1), status(Ok), sqlstate(""),
                     msg_primary(""), msg_detail(""), msg_hint("")
             {
                 runtime.tv_sec = 0;
@@ -84,9 +84,9 @@ namespace PsqlChunks
             void appendSqlLine(std::string , linenumber_t);
             void appendStartComment(std::string );
             void appendEndComment(std::string );
-            const std::string getSql();
+            std::string getSql() const;
 
-            bool hasSql()
+            bool hasSql() const
             {
                 return !sql_lines.empty();
             }
@@ -96,13 +96,13 @@ namespace PsqlChunks
                 return sql_lines;
             }
 
-            bool failed()
+            bool failed() const
             {
                 return diagnostics.status != Diagnostics::Ok;
             }
 
             /** get a description for the chunk. single line */
-            const std::string getDescription();
+            std::string getDescription() const;
 
             void clear();
 
