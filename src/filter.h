@@ -15,13 +15,14 @@ namespace PsqlChunks
             Filter& operator=(const Filter&);
 
         public:
-            Filter();
+            Filter() {};
             virtual ~Filter() {};
 
             /**
              * returns false if the parameter string is not accepted
+             * in this case a error message will be written to the errmsg parameter
              */
-            virtual bool setParams(const char * params) = 0;
+            virtual bool setParams(const char * params, std::string &errmsg) = 0;
             virtual bool match(const Chunk& chunk) = 0;
             
     };
@@ -62,12 +63,16 @@ namespace PsqlChunks
             std::vector<linenumber_t> linenumbers;
 
         public:
+            LineFilter() : Filter() {};
+            ~LineFilter() {};
+
             /**
              * param syntax:
              *  "1,6,88"
              */
-            bool setParams(const char * params) = 0;
+            bool setParams(const char * params, std::string &errmsg);
             bool match(const Chunk& chunk);
+
 
     };
 
@@ -79,6 +84,9 @@ namespace PsqlChunks
     {
         protected:
             bool matchString(std::string &str);
+
+        public:
+            bool setParams(const char * params, std::string &errmsg);
     };
 
 

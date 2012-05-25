@@ -11,6 +11,7 @@
 
 #include "scanner.h"
 #include "db.h"
+#include "filter.h"
 #include "debug.h"
 
 using namespace std;
@@ -74,6 +75,7 @@ struct Settings {
     bool print_filenames;
     const char * client_encoding;
 
+    FilterChain filterchain;
 
     Settings() :
         db_port(0),
@@ -194,6 +196,11 @@ print_help()
         "\n"
         "General:\n"
         "  -F           hide filenames from output\n"
+        "\n"
+        "Filters:\n"
+        "  -L [lines]   use only chunks which span the give lines.\n"
+        "               lines is a commaseperated list of line numbers. Example:\n"
+        "               1,78,345\n"
         "\n"
         "SQL Handling:\n"
         "  -C           commit SQL to the database. Default is performing a rollback\n"
@@ -387,6 +394,12 @@ scan(Settings & settings, ChunkScanner & scanner, Db & db)
     CommandRc crc = OK;
 
     while (scanner.nextChunk(chunk)) {
+
+        // skip non-matching chunks
+        if (!settings.filterchain.match(chunk)) {
+            continue;
+        }
+
         switch (settings.command) {
             case PRINT:
                 crc = cmd_print(chunk);
@@ -522,12 +535,12 @@ main(int argc, char * argv[] )
     if (isatty(fileno(stdout)) == 1) {
         settings.is_terminal = true;
         // disable output buffering
-        setvbuf (stdout, NULL, _IONBF, BUFSIZ);
+        setvbuf(stdout, NULL, _IONBF, BUFSIZ);
     };
 
     // read options
     char opt;
-    while ( (opt = getopt(argc, argv, "l:p:U:d:h:WCaFE:")) != -1) {
+    while ( (opt = getopt(argc, argv, "l:p:U:d:h:WCaFE:L:")) != -1) {
         switch (opt) {
             case 'p': /* port */
                 settings.db_port = optarg;
@@ -572,6 +585,16 @@ main(int argc, char * argv[] )
                 break;
             case 'E': /* client_encoding */
                 settings.client_encoding = optarg;
+                break;
+            case 'L': /* line filter */
+                {
+                    LineFilter * linefilter = new LineFilter();
+                    std::string errmsg;
+                    if (!linefilter->setParams(optarg, errmsg)) {
+                        quit(errmsg.c_str());
+                    }
+                    settings.filterchain.addFilter(linefilter);
+                }
                 break;
             default:
                 quit("Unknown option.");

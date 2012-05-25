@@ -1,7 +1,7 @@
 #include <sstream>
 
-
 #include "filter.h"
+#include "debug.h"
 
 
 using namespace PsqlChunks;
@@ -34,7 +34,7 @@ FilterChain::~FilterChain()
 
 
 bool 
-LineFilter::setParams(const char * params)
+LineFilter::setParams(const char * params, std::string &errmsg)
 {
     std::stringstream pstream(params);
     std::string numberstring;
@@ -48,11 +48,22 @@ LineFilter::setParams(const char * params)
         if (numberstream.fail()) {
             // illegal value
             linenumbers.clear();
+
+            std::stringstream errstream;
+            errstream << "Not a number: " << numberstring;
+            errmsg = errstream.str();
+
             return false;
         }
         linenumbers.push_back(number);
 
+        log_debug("LineFilter: number = %d", number);
     }
+
+    if (linenumbers.empty()) {
+        errmsg = "No linenumbers given.";
+    }
+
     return !linenumbers.empty();
 }
 
@@ -61,7 +72,7 @@ bool
 LineFilter::match(const Chunk& chunk)
 {
     for(std::vector<linenumber_t>::const_iterator number = linenumbers.begin(); number != linenumbers.end(); ++number) {
-        if ((chunk.start_line >= *number) && (chunk.end_line <= *number)) {
+        if ((chunk.start_line <= *number) && (chunk.end_line >= *number)) {
             return true;
         }
     }
@@ -75,6 +86,11 @@ RegexFilter::matchString(std::string &str)
     return true; // TODO
 }
 
+bool 
+RegexFilter::setParams(const char * params, std::string &errmsg)
+{
+    return true;
+}
 
 bool
 DescriptionRegexFilter::match(const Chunk& chunk)
