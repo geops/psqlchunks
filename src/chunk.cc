@@ -125,8 +125,8 @@ Chunk::addLineNumber( linenumber_t lno )
 }
 
 
-const std::string
-Chunk::getDescription()
+std::string
+Chunk::getDescription() const
 {
     std::string desc = start_comment;
     replace(desc.begin(), desc.end(), '\n', ' ');
@@ -134,12 +134,12 @@ Chunk::getDescription()
 }
 
 
-const std::string
-Chunk::getSql()
+std::string
+Chunk::getSql() const
 {
     std::stringstream sqlstream;
 
-    for (linevector_t::iterator lit = sql_lines.begin(); lit != sql_lines.end(); ++lit) {
+    for (linevector_t::const_iterator lit = sql_lines.begin(); lit != sql_lines.end(); ++lit) {
         sqlstream << (*lit)->contents << std::endl;
     }
     return sqlstream.str();
