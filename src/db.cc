@@ -142,6 +142,7 @@ Db::runChunk(Chunk & chunk)
     if ((PQresultStatus(pgres) == PGRES_FATAL_ERROR) ||
         (PQresultStatus(pgres) == PGRES_NONFATAL_ERROR)) {
         success = false;
+        chunk.diagnostics.status = Diagnostics::Fail;
 
         // error line and position in that line
         char * statement_position = PQresultErrorField(pgres, PG_DIAG_STATEMENT_POSITION);
