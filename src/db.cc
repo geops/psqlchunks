@@ -103,8 +103,6 @@ Db::getErrorMessage()
 bool
 Db::runChunk(Chunk & chunk)
 {
-    bool success = true;
-
     if (!isConnected()) {
         DbException e("lost db connection");
         throw e;
@@ -141,7 +139,6 @@ Db::runChunk(Chunk & chunk)
 
     if ((PQresultStatus(pgres) == PGRES_FATAL_ERROR) ||
         (PQresultStatus(pgres) == PGRES_NONFATAL_ERROR)) {
-        success = false;
         chunk.diagnostics.status = Diagnostics::Fail;
 
         // error line and position in that line
@@ -184,7 +181,7 @@ Db::runChunk(Chunk & chunk)
 
     PQclear(pgres);
 
-    if (!success) {
+    if (chunk.diagnostics.status != Diagnostics::Ok) {
         executeSql("rollback to savepoint chunk;");
         failed_count++;
     }
@@ -192,7 +189,7 @@ Db::runChunk(Chunk & chunk)
         executeSql("release savepoint chunk;");
     }
 
-    return success;
+    return (chunk.diagnostics.status == Diagnostics::Ok);
 }
 
 
