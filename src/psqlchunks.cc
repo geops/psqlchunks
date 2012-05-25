@@ -44,8 +44,8 @@ using namespace PsqlChunks;
 
 // version number
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 5
-#define VERSION_PATCH 2
+#define VERSION_MINOR 6
+#define VERSION_PATCH 0
 
 static const char * s_fail_sep = "-------------------------------------------------------";
 
@@ -206,12 +206,13 @@ print_help()
         "  -F           hide filenames from output\n"
         "\n"
         "Filters:\n"
-        "  -L [lines]   use only chunks which span the give lines.\n"
+        "  -L [lines]   use only chunks which span the given lines.\n"
         "               lines is a commaseperated list of line numbers. Example:\n"
         "               1,78,345\n"
-        "  -I [regex]   description comments have to match this regular expression\n"
-        "               (POSIX extended regular expression), case insensitive\n"
-        "  -S [regex]   SQL has to match this POSIX extended regular expression. case insensitive\n"
+        "  -I [regex]   match description comments with a regular expression.\n"
+        "               (POSIX extended regular expression, case insensitive)\n"
+        "  -S [regex]   SQL has to match this POSIX extended regular expression,\n"
+        "               also case insensitive.\n"
         "\n"
         "SQL Handling:\n"
         "  -C           commit SQL to the database. Default is performing a rollback\n"
