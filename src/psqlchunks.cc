@@ -48,9 +48,6 @@ using namespace PsqlChunks;
 
 static const char * s_fail_sep = "-------------------------------------------------------";
 
-// allow signal handler to access db
-static Db * db_ptr = NULL;
-
 enum Command {
     PRINT,
     LIST,
@@ -61,20 +58,6 @@ enum CommandRc {
     OK,
     BREAK
 };
-
-
-/* prototypes */
-void quit(const char * message);
-void print_help();
-const char * ansi_code(const char * color);
-std::string read_password();
-int handle_files(char * files[], int nufiles);
-CommandRc cmd_list(Chunk & chunk);
-CommandRc cmd_print(const Chunk & chunk);
-void cmd_run_print_diagnostics(Chunk & chunk);
-CommandRc cmd_run(Chunk & chunk, Db & db);
-CommandRc scan(ChunkScanner & scanner, Db & db);
-extern void handle_sigint(int sig);
 
 
 struct Settings {
@@ -90,28 +73,50 @@ struct Settings {
     unsigned int context_lines;
     bool print_filenames;
     const char * client_encoding;
+
+
+    Settings() :
+        db_port(0),
+        db_user(0),
+        db_name(0),
+        db_host(0),
+        ask_pass(false),
+        commit_sql(false),
+        abort_after_failed(false),
+        command(LIST),
+        is_terminal(false),
+        context_lines(DEFAULT_CONTEXT_LINES),
+        print_filenames(true),
+        client_encoding(0)
+    {};
 };
-static Settings settings = {
-    NULL,       /* db_port */
-    NULL,       /* db_user */
-    NULL,       /* db_name */
-    NULL,       /* db_host */
-    false,      /* ask_pass */
-    false,      /* commit_sql */
-    false,      /* abort_after_failed */
-    LIST,       /* command */
-    false,      /* colored */
-    DEFAULT_CONTEXT_LINES,   /* context_lines */
-    true,       /* print_filenames */
-    NULL        /* client_encoding */
-};
+
+// allow signal handler to access db
+static Db * db_ptr = NULL;
+static Settings * settings_ptr = NULL;
+
+
+/* prototypes */
+void quit(const char * message);
+void print_help();
+const char * ansi_code(const char * color);
+std::string read_password();
+int handle_files(Settings & settings, char * files[], int nufiles);
+CommandRc cmd_list(Chunk & chunk);
+CommandRc cmd_print(const Chunk & chunk);
+void cmd_run_print_diagnostics(Settings & settings, Chunk & chunk);
+CommandRc cmd_run(Chunk & chunk, Db & db);
+CommandRc scan(Settings & settings, ChunkScanner & scanner, Db & db);
+extern void handle_sigint(int sig);
 
 
 const char *
 ansi_code(const char * color)
 {
-    if (settings.is_terminal) {
-        return color;
+    if (settings_ptr) {
+        if (settings_ptr->is_terminal) {
+            return color;
+        }
     }
     return ANSI_NONE;
 }
@@ -259,7 +264,7 @@ cmd_print(const Chunk & chunk)
 
 
 inline void
-cmd_run_print_diagnostics(Chunk & chunk) {
+cmd_run_print_diagnostics(Settings & settings, Chunk & chunk) {
     if (chunk.failed()) {
         printf( "%s\n"
                 "%s> description : %s\n"
@@ -330,7 +335,7 @@ cmd_run_print_diagnostics(Chunk & chunk) {
 }
 
 inline CommandRc
-cmd_run(Chunk & chunk, Db & db)
+cmd_run(Settings & settings, Chunk & chunk, Db & db)
 {
     if (settings.is_terminal) {
         printf("RUN   [%d-%d] %s", chunk.start_line, chunk.end_line, chunk.getDescription().c_str());
@@ -354,7 +359,7 @@ cmd_run(Chunk & chunk, Db & db)
                 chunk.getDescription().c_str());
 
     if (!run_ok) {
-        cmd_run_print_diagnostics(chunk);
+        cmd_run_print_diagnostics(settings, chunk);
         if (settings.abort_after_failed) {
             printf("Chunk failed. Aborting.\n");
             return BREAK;
@@ -366,7 +371,7 @@ cmd_run(Chunk & chunk, Db & db)
 
 
 void
-print_header(const char * filename)
+print_header(Settings & settings, const char * filename)
 {
     if (settings.print_filenames) {
         printf("\n----[ File: %s%s%s\n", ansi_code(ANSI_BLUE), filename,
@@ -376,7 +381,7 @@ print_header(const char * filename)
 
 
 CommandRc
-scan(ChunkScanner & scanner, Db & db)
+scan(Settings & settings, ChunkScanner & scanner, Db & db)
 {
     Chunk chunk;
     CommandRc crc = OK;
@@ -390,7 +395,7 @@ scan(ChunkScanner & scanner, Db & db)
                 crc = cmd_list(chunk);
                 break;
             case RUN:
-                crc = cmd_run(chunk, db);
+                crc = cmd_run(settings, chunk, db);
                 break;
         }
 
@@ -403,7 +408,7 @@ scan(ChunkScanner & scanner, Db & db)
 
 
 int
-handle_files(char * files[], int nufiles)
+handle_files(Settings &settings, char * files[], int nufiles)
 {
     CommandRc crc = OK;
     int rc = RC_OK;
@@ -447,12 +452,12 @@ handle_files(char * files[], int nufiles)
             for( int i = 0; ((i < nufiles) && (crc == OK)); i++ ) {
                 if (strcmp(files[i], "-") == 0) {
                     // read from stdin
-                    print_header("stdin");
+                    print_header(settings, "stdin");
                     ChunkScanner chunkscanner(std::cin);
-                    crc = scan(chunkscanner, db);
+                    crc = scan(settings, chunkscanner, db);
                 }
                 else {
-                    print_header(files[i]);
+                    print_header(settings, files[i]);
 
                     // open the file
                     std::ifstream is;
@@ -464,7 +469,7 @@ handle_files(char * files[], int nufiles)
                         break;
                     }
                     ChunkScanner chunkscanner(is);
-                    crc = scan(chunkscanner, db);
+                    crc = scan(settings, chunkscanner, db);
                 }
             }
         }
@@ -500,6 +505,9 @@ handle_files(char * files[], int nufiles)
 int
 main(int argc, char * argv[] )
 {
+    Settings settings;
+    settings_ptr = &settings;
+
     // register signal handler
     struct sigaction sigint_act, o_sigint_act;
     sigint_act.sa_handler = handle_sigint;
@@ -603,5 +611,5 @@ main(int argc, char * argv[] )
         quit("No input file(s) given.");
     }
 
-    return handle_files(argv+fileind, argc-fileind);
+    return handle_files(settings, argv+fileind, argc-fileind);
 }
