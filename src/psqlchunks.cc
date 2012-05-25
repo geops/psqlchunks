@@ -62,35 +62,43 @@ enum CommandRc {
 
 
 struct Settings {
-    const char * db_port;
-    const char * db_user;
-    const char * db_name;
-    const char * db_host;
-    bool ask_pass;
-    bool commit_sql;
-    bool abort_after_failed;
-    Command command;
-    bool is_terminal;
-    unsigned int context_lines;
-    bool print_filenames;
-    const char * client_encoding;
+    public:
+        const char * db_port;
+        const char * db_user;
+        const char * db_name;
+        const char * db_host;
+        bool ask_pass;
+        bool commit_sql;
+        bool abort_after_failed;
+        Command command;
+        bool is_terminal;
+        unsigned int context_lines;
+        bool print_filenames;
+        const char * client_encoding;
 
-    FilterChain filterchain;
+        FilterChain filterchain;
 
-    Settings() :
-        db_port(0),
-        db_user(0),
-        db_name(0),
-        db_host(0),
-        ask_pass(false),
-        commit_sql(false),
-        abort_after_failed(false),
-        command(LIST),
-        is_terminal(false),
-        context_lines(DEFAULT_CONTEXT_LINES),
-        print_filenames(true),
-        client_encoding(0)
-    {};
+        Settings() :
+            db_port(0),
+            db_user(0),
+            db_name(0),
+            db_host(0),
+            ask_pass(false),
+            commit_sql(false),
+            abort_after_failed(false),
+            command(LIST),
+            is_terminal(false),
+            context_lines(DEFAULT_CONTEXT_LINES),
+            print_filenames(true),
+            client_encoding(0),
+            filterchain()
+        {};
+
+    private:
+        Settings(const Settings&);
+        Settings& operator=(const Settings&);
+
+
 };
 
 // allow signal handler to access db
@@ -201,6 +209,9 @@ print_help()
         "  -L [lines]   use only chunks which span the give lines.\n"
         "               lines is a commaseperated list of line numbers. Example:\n"
         "               1,78,345\n"
+        "  -I [regex]   description comments have to match this regular expression\n"
+        "               (POSIX extended regular expression), case insensitive\n"
+        "  -S [regex]   SQL has to match this POSIX extended regular expression. case insensitive\n"
         "\n"
         "SQL Handling:\n"
         "  -C           commit SQL to the database. Default is performing a rollback\n"
@@ -310,7 +321,7 @@ cmd_run_print_diagnostics(Settings & settings, Chunk & chunk) {
             if (settings.context_lines < (chunk.end_line - chunk.diagnostics.error_line)) {
                 out_end = chunk.diagnostics.error_line + settings.context_lines;
             }
-            log_debug("out_start: %u, out_end: %u", out_start, out_end);
+            log_debug("out_start: %lu, out_end: %lu", out_start, out_end);
 
             // output sql
             linevector_t sql_lines = chunk.getSqlLines();
@@ -515,6 +526,20 @@ handle_files(Settings &settings, char * files[], int nufiles)
 }
 
 
+template <class T>
+void
+add_filter(FilterChain &filterchain, const char * params)
+{
+    T * filter = new T();
+    std::string errmsg;
+    if (!filter->setParams(params, errmsg)) {
+        delete filter;
+        quit(errmsg.c_str());
+    }
+    filterchain.addFilter(filter);
+}
+
+
 int
 main(int argc, char * argv[] )
 {
@@ -540,7 +565,7 @@ main(int argc, char * argv[] )
 
     // read options
     char opt;
-    while ( (opt = getopt(argc, argv, "l:p:U:d:h:WCaFE:L:")) != -1) {
+    while ( (opt = getopt(argc, argv, "l:p:U:d:h:WCaFE:L:S:I:")) != -1) {
         switch (opt) {
             case 'p': /* port */
                 settings.db_port = optarg;
@@ -587,14 +612,13 @@ main(int argc, char * argv[] )
                 settings.client_encoding = optarg;
                 break;
             case 'L': /* line filter */
-                {
-                    LineFilter * linefilter = new LineFilter();
-                    std::string errmsg;
-                    if (!linefilter->setParams(optarg, errmsg)) {
-                        quit(errmsg.c_str());
-                    }
-                    settings.filterchain.addFilter(linefilter);
-                }
+                add_filter<LineFilter>(settings.filterchain, optarg);
+                break;
+            case 'I': /* description regex filter */
+                add_filter<DescriptionRegexFilter>(settings.filterchain, optarg);
+                break;
+            case 'S': /* sql regex filter */
+                add_filter<ContentRegexFilter>(settings.filterchain, optarg);
                 break;
             default:
                 quit("Unknown option.");

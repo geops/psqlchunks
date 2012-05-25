@@ -3,6 +3,9 @@
 
 #include <vector>
 #include <string>
+
+#include <regex.h>
+
 #include "chunk.h"
 
 namespace PsqlChunks
@@ -44,7 +47,7 @@ namespace PsqlChunks
             std::vector<Filter*> filters;
 
         public:
-            FilterChain() {};
+            FilterChain() : filters() {};
             ~FilterChain();
 
             void addFilter(Filter * filter);
@@ -63,7 +66,7 @@ namespace PsqlChunks
             std::vector<linenumber_t> linenumbers;
 
         public:
-            LineFilter() : Filter() {};
+            LineFilter() : Filter(), linenumbers() {};
             ~LineFilter() {};
 
             /**
@@ -82,10 +85,20 @@ namespace PsqlChunks
      */
     class RegexFilter : public Filter
     {
+        private:
+            regex_t * re;
+
+            RegexFilter(const RegexFilter&);
+            RegexFilter& operator=(const RegexFilter&);
+
         protected:
             bool matchString(std::string &str);
 
         public:
+
+            RegexFilter() : Filter(), re(NULL) {}; 
+            ~RegexFilter();
+
             bool setParams(const char * params, std::string &errmsg);
     };
 

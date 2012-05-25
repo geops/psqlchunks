@@ -45,7 +45,7 @@ namespace PsqlChunks
             std::string msg_detail;
             std::string msg_hint;
 
-            Diagnostics() : error_line(1), status(Ok), sqlstate(""),
+            Diagnostics() : runtime(), error_line(1), status(Ok), sqlstate(""),
                     msg_primary(""), msg_detail(""), msg_hint("")
             {
                 runtime.tv_sec = 0;

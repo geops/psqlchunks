@@ -1,4 +1,5 @@
 #include <sstream>
+#include <cstdlib>
 
 #include "filter.h"
 #include "debug.h"
@@ -83,13 +84,49 @@ LineFilter::match(const Chunk& chunk)
 bool
 RegexFilter::matchString(std::string &str) 
 {
-    return true; // TODO
+    if (re) {
+        return (regexec(re, str.c_str(), 0, NULL, 0) == 0);
+    }
+    
+    return false;
 }
 
 bool 
 RegexFilter::setParams(const char * params, std::string &errmsg)
 {
+    if (!re) {
+        re = new regex_t;
+    }
+    else {
+        regfree(re);
+    }
+    int errcode = regcomp(re, params, REG_EXTENDED | REG_ICASE);
+    if (errcode != 0) {
+        size_t len = regerror(errcode, re, NULL, 0);
+        char * buff = new char[len];
+        if(buff) {
+            regerror(errcode, re, buff, len);
+            errmsg = buff;
+            delete[] buff;
+        }
+        else {
+            errmsg = "Invalid regex";
+        }
+        regfree(re);
+        delete re;
+        re = NULL;
+
+        return false;
+    }
     return true;
+}
+
+RegexFilter::~RegexFilter()
+{
+    if (re) {
+        regfree(re);
+        delete re;
+    }
 }
 
 bool

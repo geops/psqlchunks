@@ -76,6 +76,9 @@ namespace PsqlChunks
             ChunkScanner * scanner;
             Chunk chunk;
 
+            ChunkIterator(const ChunkIterator&);
+            ChunkIterator& operator=(const ChunkIterator&);
+
             inline void fetchChunk()
             {
                 if (scanner && !scanner->nextChunk(chunk)) {
@@ -85,13 +88,13 @@ namespace PsqlChunks
             }
 
         public:
-            ChunkIterator(std::istream& is) : scanner(NULL)
+            ChunkIterator(std::istream& is) : scanner(NULL), chunk()
             {
                 scanner = new ChunkScanner(is);
                 fetchChunk();
             };
 
-            ChunkIterator() : scanner(NULL) {};
+            ChunkIterator() : scanner(NULL), chunk() {};
 
             ~ChunkIterator() { delete scanner; };
 

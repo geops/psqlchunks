@@ -32,7 +32,8 @@ Line::Line(std::string _contents, linenumber_t _number)
 // ### Chunk ############################################
 
 Chunk::Chunk()
-    : sql_lines(), start_comment(""), end_comment(""), start_line(0), end_line(0)
+    : sql_lines(), start_comment(""), end_comment(""),
+      start_line(0), end_line(0), diagnostics()
 {
 }
 
