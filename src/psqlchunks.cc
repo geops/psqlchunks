@@ -371,10 +371,10 @@ cmd_run(Settings & settings, Chunk & chunk, Db & db)
     else {
         printf("%sFAIL%s", ansi_code(ANSI_RED), ansi_code(ANSI_RESET));
     }
-    printf("  [%d-%d] [%ld.%06lds] %s\n", chunk.start_line,
+    printf("  [%d-%d] [%ld.%03lds] %s\n", chunk.start_line,
                 chunk.end_line,
                 chunk.diagnostics.runtime.tv_sec,
-                chunk.diagnostics.runtime.tv_usec,
+                chunk.diagnostics.runtime.tv_usec / 1000,
                 chunk.getDescription().c_str());
 
     if (!run_ok) {
