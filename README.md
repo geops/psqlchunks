@@ -24,7 +24,7 @@ Result:
 
     Usage :  
     psqlchunks command [options] files
-    version: 0.5.2
+    version: 0.6.0
 
     use - as filename to read from stdin.
     Definition of a chunk of SQL:
@@ -62,6 +62,15 @@ Result:
     General:
       -F           hide filenames from output
 
+    Filters:
+      -L [lines]   use only chunks which span the given lines.
+                   lines is a commaseperated list of line numbers. Example:
+                   1,78,345
+      -I [regex]   match description comments with a regular expression.
+                   (POSIX extended regular expression, case insensitive)
+      -S [regex]   SQL has to match this POSIX extended regular expression,
+                   also case insensitive.
+
     SQL Handling:
       -C           commit SQL to the database. Default is performing a rollback
                    after the SQL has been executed. A commit will only be
@@ -97,4 +106,3 @@ ToDo
 ----
 
 - capture notices/warnings and print them without messing up the existing output
-
