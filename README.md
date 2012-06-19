@@ -95,6 +95,13 @@ Result:
       3            (internal) database error
 
 
+
+Build requirements
+------------------
+
+- C++ compiler (gcc, clang++)
+- Postgresql libpq development headers (package libpq-dev on Debian-based systems)
+
 Limitations
 -----------
 
