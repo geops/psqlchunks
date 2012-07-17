@@ -60,7 +60,7 @@ ChunkScanner::hasMarker(const std::string &haystack, const std::string& marker,
             if (haystack[start_pos+c] == ':') {
                 end_pos = start_pos+c;
                 while (((end_pos) < haystack.size()) &&
-                        ( is_inline_whitespace(haystack[end_pos]) || haystack[end_pos] == ':')) {
+                        ( is_inline_whitespace(haystack[end_pos]) || (haystack[end_pos] == ':') )) {
                     end_pos++;
                 }
                 return true;
