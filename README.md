@@ -99,17 +99,13 @@ Result:
 Build requirements
 ------------------
 
-- C++ compiler (gcc, clang++)
-- Postgresql libpq development headers (package libpq-dev on Debian-based systems)
+- a C++ compiler. GCC and clang are tested.
+- PostgreSQL libpq development headers. These are available in the package libpq-dev on Debian-based systems.
 
 Limitations
 -----------
 
-- no transations inside the SQL file allowed. Will simply fail.
-- COPY statements may not be executed
-
-
-ToDo
-----
-
-- capture notices/warnings and print them without messing up the existing output
+- No transactions inside the SQL file allowed. This will cause the main transaction to be commited, which may
+  result in an inconsitent state in the database.
+- COPY statements may not be executed.
+- NOTICES emited by the database server will simply be printed to stdout.
