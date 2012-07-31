@@ -393,7 +393,7 @@ void
 print_header(Settings & settings, const char * filename)
 {
     if (settings.print_filenames) {
-        printf("\n----[ File: %s%s%s\n", ansi_code(ANSI_BLUE), filename,
+        printf("\n----[ File: %s%s%s\n", ansi_code(ANSI_GREEN), filename,
                 ansi_code(ANSI_RESET));
     }
 }
