@@ -46,6 +46,7 @@ using namespace PsqlChunks;
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 6
 #define VERSION_PATCH 0
+#define VERSION_FULL STRINGIFY(VERSION_MAJOR) "." STRINGIFY(VERSION_MINOR) "." STRINGIFY(VERSION_PATCH)
 
 static const char * s_fail_sep = "-------------------------------------------------------";
 
@@ -109,6 +110,7 @@ static Settings * settings_ptr = NULL;
 /* prototypes */
 void quit(const char * message);
 void print_help();
+void print_version();
 const char * ansi_code(const char * color);
 std::string read_password();
 int handle_files(Settings & settings, char * files[], int nufiles);
@@ -161,13 +163,21 @@ handle_sigint(int sig) {
     }
 }
 
+
+void
+print_version()
+{
+    printf(VERSION_FULL "\n");
+}
+
+
 void
 print_help()
 {
     printf(
         "Usage :  \n"
         "psqlchunks command [options] files\n"
-        "version: " STRINGIFY(VERSION_MAJOR) "." STRINGIFY(VERSION_MINOR) "."  STRINGIFY(VERSION_PATCH) "\n"
+        "version: " VERSION_FULL "\n"
         "\n"
         "use - as filename to read from stdin.\n"
         "Definition of a chunk of SQL:\n"
@@ -201,6 +211,7 @@ print_help()
         "               COMMIT statements from the SQL files. Should there be any\n"
         "               in the files, the SQL WILL BE COMMITED and this tool will\n"
         "               terminate.\n"
+        "  version      print the version number and exit.\n"
         "\n"
         "General:\n"
         "  -F           hide filenames from output\n"
@@ -647,6 +658,10 @@ main(int argc, char * argv[] )
     }
     else if (strcmp(*(argv+optind), "help") == 0) {
         print_help();
+        return RC_OK;
+    }
+    else if (strcmp(*(argv+optind), "version") == 0) {
+        print_version();
         return RC_OK;
     }
     else {
