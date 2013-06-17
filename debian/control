@@ -1,0 +1,11 @@
+Source: psqlchunks
+Section: misc
+Priority: optional
+Maintainer: Nico Mandery <nico.mandery@geops.de>
+Build-Depends: debhelper (>= 7.0.50~), build-essential, libpq5, libpq-dev
+Standards-Version: 3.9.2
+Homepage: https://github.com/geops/psqlchunks
+
+Package: psqlchunks
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}

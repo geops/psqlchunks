@@ -1,3 +1,7 @@
 *.swp
 *.o
 /psqlchunks
+/debian/files
+/debian/psqlchunks.debhelper.log
+/debian/psqlchunks.substvars
+/debian/psqlchunks/

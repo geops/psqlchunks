@@ -1,0 +1,35 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+export DH_VERBOSE=1
+export DH_OPTIONS
+
+# prefix for the installation
+export PREFIX=$(CURDIR)/debian/psqlchunks/usr
+
+CFLAGS = -Wall -g
+
+build:
+	dh build
+
+install: build
+	dh install
+
+binary: binary-arch binary-indep
+
+override_dh_auto_install:
+	mkdir -p "$(PREFIX)/bin"
+	dh_auto_install
+	
+
+# Build architecture-independent files here.
+binary-indep:
+
+# Build architecture-dependent files here.
+binary-arch:
+	dh binary-arch
+
+clean:
+	dh clean
+
+.PHONY: build clean binary-indep binary-arch binary install configure
