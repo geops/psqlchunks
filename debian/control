@@ -9,3 +9,4 @@ Homepage: https://github.com/geops/psqlchunks
 Package: psqlchunks
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Testing tool to validate blocks of SQL by running them in the database
