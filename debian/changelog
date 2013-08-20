@@ -1,3 +1,9 @@
+psqlchunks (0.6.1-0) unstable; urgency=low
+
+  * adding PG_DIAG_INTERNAL_QUERY and PG_DIAG_CONTEXT to error output
+
+ -- Nico Mandery <nico.mandery@geops.de>  Thu, 20 Aug 2013 09:35:00 +0100
+
 psqlchunks (0.6.0-0) unstable; urgency=low
 
   * first packaged version

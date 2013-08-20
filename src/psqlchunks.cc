@@ -45,7 +45,7 @@ using namespace PsqlChunks;
 // version number
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 6
-#define VERSION_PATCH 0
+#define VERSION_PATCH 1
 #define VERSION_FULL STRINGIFY(VERSION_MAJOR) "." STRINGIFY(VERSION_MINOR) "." STRINGIFY(VERSION_PATCH)
 
 static const char * s_fail_sep = "-------------------------------------------------------";
