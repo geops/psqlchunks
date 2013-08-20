@@ -297,32 +297,38 @@ inline void
 cmd_run_print_diagnostics(Settings & settings, Chunk & chunk) {
     if (chunk.failed()) {
         printf( "%s\n"
-                "%s> description : %s\n"
-                "> sql state   : %s\n",
+                "%s> description    : %s\n"
+                "> sql state      : %s\n",
                 s_fail_sep,
                 ansi_code(ANSI_BOLD),
                 chunk.diagnostics.msg_primary.c_str(),
                 chunk.diagnostics.sqlstate.c_str()
         );
         if (chunk.diagnostics.error_line != LINE_NUMBER_NOT_AVAILABLE) {
-            printf("> line        : %d\n", chunk.diagnostics.error_line);
+            printf("> line           : %d\n", chunk.diagnostics.error_line);
         }
         else {
-            printf("> line        : not available [chunk %d-%d]\n",
+            printf("> line           : not available [chunk %d-%d]\n",
                         chunk.start_line, chunk.end_line);
         }
 
 
         if (!chunk.diagnostics.msg_detail.empty()) {
-            printf("> details     : %s\n", chunk.diagnostics.msg_detail.c_str());
+            printf("> details        : %s\n", chunk.diagnostics.msg_detail.c_str());
         }
         if (!chunk.diagnostics.msg_hint.empty()) {
-            printf("> hint        : %s\n", chunk.diagnostics.msg_hint.c_str());
+            printf("> hint           : %s\n", chunk.diagnostics.msg_hint.c_str());
+        }
+        if (!chunk.diagnostics.msg_context.empty()) {
+            printf("> context        : %s\n\n", chunk.diagnostics.msg_context.c_str());
+        }
+        if (!chunk.diagnostics.msg_internal_query.empty()) {
+            printf("> internal query : %s\n\n", chunk.diagnostics.msg_internal_query.c_str());
         }
 
         // print sql fragment
         if (chunk.diagnostics.error_line != LINE_NUMBER_NOT_AVAILABLE) {
-            printf("> SQL         :%s\n\n", ansi_code(ANSI_RESET));
+            printf("> SQL            :%s\n\n", ansi_code(ANSI_RESET));
 
             // calculate the size of the fragment
             size_t out_start = chunk.start_line;

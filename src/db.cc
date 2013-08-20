@@ -178,6 +178,16 @@ Db::runChunk(Chunk & chunk)
         if (msg_hint) {
             chunk.diagnostics.msg_hint.assign(msg_hint);
         }
+
+        char * msg_internal_query = PQresultErrorField(pgres, PG_DIAG_INTERNAL_QUERY);
+        if (msg_internal_query) {
+            chunk.diagnostics.msg_internal_query.assign(msg_internal_query);
+        }
+
+        char * msg_context = PQresultErrorField(pgres, PG_DIAG_CONTEXT);
+        if (msg_context) {
+            chunk.diagnostics.msg_hint.assign(msg_context);
+        }
     }
 
     PQclear(pgres);
